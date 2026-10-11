@@ -7,6 +7,7 @@ import { MentorPanel } from "@/components/MentorPanel";
 import { TestResults } from "@/components/TestResults";
 import { executeMission } from "@/lib/execution-client";
 import { getBrowserAccessToken } from "@/lib/supabase";
+import type { LocalPythonPhase } from "@/lib/local-python";
 import type { ExecutionMode, ExecutionResult, ExecutionSource, HintSet, MentorResponse, Mission } from "@/types";
 
 function clearMentorState(
@@ -26,7 +27,8 @@ function clearMentorState(
 export function ArenaWorkspace({ mission }: { mission: Mission }) {
   const [code, setCode] = useState(mission.starterCode);
   const [result, setResult] = useState<ExecutionResult | null>(null);
-  const [executionSource, setExecutionSource] = useState<ExecutionSource>("demo");
+  const [executionSource, setExecutionSource] = useState<ExecutionSource>("local");
+  const [localPythonPhase, setLocalPythonPhase] = useState<LocalPythonPhase>("loading");
   const [resultSource, setResultSource] = useState<string | null>(null);
   const [mentorEvidenceToken, setMentorEvidenceToken] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -44,7 +46,9 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
     resultIsCurrent
       && result
       && result.status !== "execution_error"
-      && (result.isSimulated || (mentorEvidenceToken && !result.isMock)),
+      && (result.isSimulated
+        || result.executionSource === "local"
+        || (mentorEvidenceToken && !result.isMock)),
   );
 
   function switchExecutionSource(nextSource: ExecutionSource) {
@@ -67,7 +71,13 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
     setRequestError(null);
     clearMentorState(setMentorHints, setRevealedHintCount, setHintCategory, setHintExplanation, setHintError);
     try {
-      const executionResult = await executeMission(mission.id, submittedCode, mode, executionSource);
+      const executionResult = await executeMission(
+        mission.id,
+        submittedCode,
+        mode,
+        executionSource,
+        executionSource === "local" ? setLocalPythonPhase : undefined,
+      );
       setResult(executionResult);
       setResultSource(submittedCode);
       setMentorEvidenceToken(executionResult.mentorEvidenceToken ?? null);
@@ -105,7 +115,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
           missionId: mission.id,
           mode: result.mode,
           hintLevel: level,
-          ...(result.isSimulated
+          ...(result.isSimulated || result.executionSource === "local"
             ? { general: true }
             : { sourceCode: code, evidenceToken: mentorEvidenceToken }),
         }),
@@ -117,7 +127,8 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
       if (!payload || typeof payload.hint !== "string" || typeof payload.category !== "string") {
         throw new Error("The mentor returned an invalid response. Please try again.");
       }
-      if (!result.isSimulated && level < 3 && typeof payload.nextEvidenceToken !== "string") {
+      const trustedServerEvidence = result.executionSource === "live" && !result.isSimulated;
+      if (trustedServerEvidence && level < 3 && typeof payload.nextEvidenceToken !== "string") {
         throw new Error("The mentor did not return the next hint reference. Run your code again.");
       }
 
@@ -126,7 +137,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
       setRevealedHintCount((current) => Math.max(current, level));
       setHintCategory(payload.category);
       setHintExplanation(payload.explanation);
-      if (!result.isSimulated) setMentorEvidenceToken(payload.nextEvidenceToken ?? null);
+      if (trustedServerEvidence) setMentorEvidenceToken(payload.nextEvidenceToken ?? null);
     } catch (error) {
       setHintError(error instanceof Error ? error.message : "Mentor guidance could not be loaded. Try again.");
     } finally {
@@ -135,15 +146,21 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
   }
 
   const statusMessage = running
-    ? executionSource === "demo" ? "Showing labelled demo feedback…" : "Judge0 is running your Python solution…"
+    ? executionSource === "demo"
+      ? "Showing labelled demo feedback…"
+      : executionSource === "local"
+        ? localPythonPhase === "loading" ? "Loading local Python runtime…" : "Running Python locally…"
+        : "Judge0 is running your Python solution…"
     : requestError
       ? "Execution could not be completed."
       : result?.isSimulated
         ? "Demo sample shown — your Python code was not executed."
         : result?.status === "passed" && result.allPassed
-        ? result.mode === "submit"
-          ? "All required mission tests passed."
-          : "Public examples passed. Submit to check the complete mission."
+          ? result.executionSource === "local"
+            ? "Local public examples passed. Hidden tests were not run."
+            : result.mode === "submit"
+            ? "All required mission tests passed."
+            : "Public examples passed. Submit to check the complete mission."
         : result
           ? `${result.passedTests} of ${result.totalTests} tests passed.`
           : "Ready when you are. Run the public examples, or submit against the full test suite.";
@@ -157,7 +174,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
           </Link>
           <div className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500 sm:flex">
             <span className="size-1.5 rounded-full bg-neutral-300" aria-hidden="true" />
-            Python · {executionSource === "demo" ? "Demo" : "Judge0"}
+            Python · {executionSource === "local" ? "Local" : executionSource === "demo" ? "Demo" : "Judge0"}
           </div>
           <span className="max-w-[45%] truncate text-right text-xs text-neutral-500 sm:max-w-none">
             {mission.category} <span className="text-neutral-700">/</span> {mission.difficulty}
@@ -169,22 +186,42 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
         <div className={`mb-4 flex flex-col gap-3 rounded-xl border px-3 py-3 sm:flex-row sm:items-center sm:justify-between ${executionSource === "demo" ? "border-amber-800/70 bg-amber-950/20" : "border-[#292929] bg-[#0d0d0d]"}`} role="status">
           <div>
             <p className={`font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${executionSource === "demo" ? "text-amber-200" : "text-neutral-300"}`}>
-              {executionSource === "demo" ? "DEMO MODE — simulated feedback" : "LIVE MODE — Judge0 execution"}
+              {executionSource === "demo"
+                ? "DEMO MODE — simulated feedback"
+                : executionSource === "local"
+                  ? "LOCAL PYTHON — browser execution"
+                  : "LIVE MODE — Judge0 execution"}
             </p>
             <p className="mt-1 text-xs leading-5 text-neutral-400">
               {executionSource === "demo"
                 ? "Sample feedback is not executed against your code and cannot complete a mission."
-                : "Your code will be sent to the configured isolated Judge0 provider."}
+                : executionSource === "local"
+                  ? "Your code runs in a browser worker. Only public examples are checked; submit does not run hidden tests or save trusted progress."
+                  : "Your code will be sent to the configured Judge0 provider."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => switchExecutionSource(executionSource === "demo" ? "live" : "demo")}
-            disabled={running || hintLoading}
-            className="min-h-10 shrink-0 rounded-lg border border-[#525252] px-3 text-xs font-semibold text-white transition hover:border-[#737373] hover:bg-[#202020] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:text-neutral-600"
-          >
-            {executionSource === "demo" ? "Use live Judge0" : "Use demo mode"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ["local", "Local Python"],
+              ["live", "Live Judge0"],
+              ["demo", "Demo Mode"],
+            ] as const).map(([source, label]) => (
+              <button
+                key={source}
+                type="button"
+                onClick={() => switchExecutionSource(source)}
+                disabled={running || hintLoading || source === executionSource}
+                aria-pressed={source === executionSource}
+                className={`min-h-10 rounded-lg border px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-default ${
+                  source === executionSource
+                    ? "border-white bg-white text-black"
+                    : "border-[#525252] text-white hover:border-[#737373] hover:bg-[#202020]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="mb-5 flex flex-col gap-5 border-b border-[#292929] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
@@ -279,7 +316,11 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
             </div>
             <CodeEditor value={code} onChange={setCode} onReady={() => setEditorReady(true)} readOnly={running} />
             <p className="mt-3 text-[11px] leading-5 text-neutral-500">
-              Run checks the public examples. Submit checks the full mission suite.
+              {executionSource === "local"
+                ? "Run and Submit both execute locally against public examples only; hidden tests are never sent to this browser."
+                : executionSource === "demo"
+                  ? "Demo mode does not execute code or verify tests."
+                  : "Run checks the public examples. Submit checks the full mission suite."}
               {running && " Editing is paused until this run finishes."}
             </p>
           </section>
@@ -314,7 +355,9 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
               <div className="mb-4">
                 <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-neutral-500">Mentor guidance</p>
                 <h2 id="mentor-title" className="mt-1 text-base font-semibold text-white">Work through the next step</h2>
-                <p className="mt-1 text-xs leading-5 text-neutral-500">Progressive, rule-based hints grounded in your execution result.</p>
+                <p className="mt-1 text-xs leading-5 text-neutral-500">
+                  Deterministic guidance; only Live Judge0 results provide server-verified execution evidence.
+                </p>
               </div>
               <MentorPanel
                 dynamicHints={resultIsCurrent ? mentorHints : {}}
@@ -326,6 +369,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
                 canRequestHint={canRequestHint}
                 executionMode={resultIsCurrent ? result?.mode : undefined}
                 executionStatus={resultIsCurrent ? result?.status : undefined}
+                executionSource={resultIsCurrent ? result?.executionSource : undefined}
                 onRequestHint={requestHint}
               />
             </section>

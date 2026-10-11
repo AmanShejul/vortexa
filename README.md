@@ -24,12 +24,13 @@ Copy `.env.example` to `.env.local` and replace placeholders:
 - `SUPABASE_ANON_KEY`: anon key for server-side auth APIs
 - `SUPABASE_SERVICE_ROLE_KEY`: service-role key for server-side writes; never expose it via `NEXT_PUBLIC_*`
 - `JUDGE0_API_URL`: optional for demo mode; required only for live Python execution. Base URL from a Judge0-compatible provider or self-hosted deployment. The app appends `/submissions`.
+- `NEXT_PUBLIC_LOCAL_PYTHON_TIMEOUT_MS`: optional local Pyodide execution timeout in milliseconds (default 10000; clamped between 1000 and 30000).
 - `JUDGE0_API_KEY`: optional Judge0 API key
 - `JUDGE0_AUTH_HEADER`, `JUDGE0_AUTH_PREFIX`: optional auth header overrides
 - `JUDGE0_PYTHON_LANGUAGE_ID`: optional Python language ID (defaults to `71`, Judge0 CE Python 3.8.1)
 - `MENTOR_EVIDENCE_SECRET`: optional server-only random secret of at least 32 bytes. Set the same value on all production instances so signed mentor evidence works across requests and restarts. If unset, a cryptographically random process-local key is used; local single-process development works, but outstanding evidence expires on restart and multi-instance deployments may reject a token issued by another instance. Never expose this variable with a `NEXT_PUBLIC_*` name.
 
-Get the endpoint URL and any required key from the Judge0 service provider or deployment administrator. Copy `.env.example` to `.env.local`, replace the Judge0 placeholders with those values, then restart `npm run dev` if live execution is needed. The arena starts in **DEMO MODE — simulated feedback**, which requires no Judge0 credentials and never executes learner code. Demo responses use public sample labels only, are marked `executionSource: "demo"` / `isSimulated: true`, cannot complete missions, and are not persisted as learner achievements. Choose “Use live Judge0” for genuine execution. Without `JUDGE0_API_URL`, live mode shows an actionable configuration message rather than falling back to simulated success. The default auth header is `X-Auth-Token`; set `JUDGE0_AUTH_HEADER` and `JUDGE0_AUTH_PREFIX` to the values required by your compatible service.
+Get the endpoint URL and any required key from the Judge0 service provider or deployment administrator. Copy `.env.example` to `.env.local`, replace the Judge0 placeholders with those values, then restart `npm run dev` if live execution is needed. The arena starts in **Local Python** mode and executes actual Python with Pyodide in a Web Worker. Local Run and Submit check only public examples; Submit is explicitly marked public-tests-only and cannot complete or save a mission. Choose **Live Judge0** for trusted server-side full-suite execution, or **Demo Mode** for labelled feedback that does not execute code. Without `JUDGE0_API_URL`, Live Judge0 shows an actionable configuration message rather than falling back to demo or reporting false success. The default auth header is `X-Auth-Token`; set `JUDGE0_AUTH_HEADER` and `JUDGE0_AUTH_PREFIX` to the values required by your compatible service.
 
 ## Applying SQL migrations
 
@@ -67,9 +68,9 @@ Then open the app and verify:
 
 ## Verification checklist
 
-- Run code in the arena and confirm the execution result is returned from `/api/run`.
-- A persisted attempt record is created when the learner is authenticated and Supabase is configured.
-- A mission completion row is upserted only when a trusted server-side result shows all tests passed.
+- In Local Python mode, confirm actual Python executes in the browser worker and checks only public cases.
+- In Live Judge0 mode with Supabase configured, a persisted attempt is created for an authenticated learner.
+- A mission completion row is upserted only when a trusted Live Judge0 Submit result shows all required tests passed.
 - Dashboard metrics come from persisted data and show empty states when no data is available.
 
 ## Security notes
@@ -81,3 +82,5 @@ Then open the app and verify:
 - Run and Submit requests are bounded to 128 KiB total and 64 KiB of source, with an eight-second per-test limit and a 30-second execution deadline. Judge0 is configured with resource caps and network access disabled where the provider supports those fields; the actual isolation guarantees depend on the selected Judge0 deployment.
 - Judge0 terminal statuses are used to separate accepted output, wrong answers, compilation errors, time limits, runtime failures, and provider/internal errors. Judge0 alone cannot prove whether every runtime failure was caused by learner code or a provider runtime defect; the application classifies documented runtime statuses as learner runtime errors and keeps provider HTTP failures, polling failures, malformed responses, and internal statuses out of learner mistake records.
 - The run route uses an in-memory sliding-window limit (5 requests per minute per verified learner; 20 per minute in one shared anonymous bucket). This is process-local and is not globally consistent across serverless instances or restarts. Configure an upstream/shared rate limiter at deployment for production-wide abuse protection; this application does not claim the local limiter provides that protection.
+- The first local run downloads the version-pinned Pyodide runtime and WebAssembly/standard-library assets from `https://cdn.jsdelivr.net/pyodide/v0.29.5/full/`; initial network access is required unless those assets are already cached. Browser deployments must permit this CDN under their content security policy. Runtime load errors expose retry and Demo Mode choices rather than using simulated output as execution.
+- Local mode is genuine Python execution, but the browser worker is not a server-side security boundary or trusted grading path. It is terminated on timeout; browser CPU and memory limits vary. Only public test inputs/expected values are supplied by the public-test endpoint. No hidden tests or server credentials are sent to Pyodide. Use Live Judge0 when trusted grading or persistent progress is needed.

@@ -18,6 +18,7 @@ export function createDemoExecutionResult(missionId: string, mode: ExecutionMode
     summary: DEMO_NOTICE,
     isMock: true,
     executionSource: "demo",
+    executionScope: "simulation",
     isSimulated: true,
     simulationNotice: "These public sample cases are shown for demonstration only. Your Python code was not executed.",
     completedAt: new Date().toISOString(),

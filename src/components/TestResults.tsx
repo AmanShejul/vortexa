@@ -71,8 +71,9 @@ export function TestResults({ result }: { result: ExecutionResult | null }) {
   const timeLabel = Number.isNaN(completedAt.getTime())
     ? null
     : completedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const isPassed = result.executionSource === "live" && !result.isSimulated && result.status === "passed" && result.allPassed;
-  const completedMission = isPassed && result.mode === "submit";
+  const isPassed = !result.isSimulated && result.status === "passed" && result.allPassed;
+  const trustedServerPass = isPassed && result.executionSource === "live" && result.executionScope === "full_suite";
+  const completedMission = trustedServerPass && result.mode === "submit";
 
   return (
     <div className="space-y-4" aria-live="polite">
@@ -83,6 +84,11 @@ export function TestResults({ result }: { result: ExecutionResult | null }) {
               {statusLabels[result.status]}
             </span>
               <p className="mt-3 text-sm leading-6 text-neutral-200">{result.summary}</p>
+              {result.executionSource === "local" && (
+                <p className="mt-3 rounded-lg border border-sky-900/70 bg-sky-950/20 px-3 py-2 text-xs leading-5 text-sky-100" role="status">
+                  Local execution — public tests only. This result is not server-verified, hidden tests were not run, and no mission progress was saved.
+                </p>
+              )}
             {result.isSimulated && (
               <p className="mt-3 rounded-lg border border-amber-800/70 bg-amber-950/20 px-3 py-2 text-xs leading-5 text-amber-100" role="status">
                 DEMO MODE — simulated feedback. {result.simulationNotice ?? "Your Python code was not executed, and this result cannot complete the mission."}
@@ -94,7 +100,12 @@ export function TestResults({ result }: { result: ExecutionResult | null }) {
           </div>
           {timeLabel && <time className="shrink-0 font-mono text-[10px] text-neutral-600">{timeLabel}</time>}
         </div>
-        {isPassed && result.mode === "run" && (
+        {isPassed && result.executionSource === "local" && (
+          <p className="mt-3 border-t border-[#292929] pt-3 text-xs font-medium text-sky-200" role="status">
+            Public examples passed in your browser. Hidden tests were not run; this does not complete the mission.
+          </p>
+        )}
+        {trustedServerPass && result.mode === "run" && (
           <p className="mt-3 border-t border-[#292929] pt-3 text-xs font-medium text-emerald-200" role="status">
             Public examples passed. Submit the mission to verify the full test suite.
           </p>

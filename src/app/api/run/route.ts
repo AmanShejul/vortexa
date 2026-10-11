@@ -190,6 +190,7 @@ function createResult(mode: ExecutionMode, tests: TestCaseResult[], totalTests: 
     allPassed,
     mode,
     executionSource: "live",
+    executionScope: mode === "run" ? "public_tests_only" : "full_suite",
     isSimulated: false,
     ...(errorMessage ? { errorMessage } : {}),
   };

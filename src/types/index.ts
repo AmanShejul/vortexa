@@ -60,7 +60,9 @@ export type ExecutionStatus =
   | "execution_error"
   | "simulated";
 
-export type ExecutionSource = "live" | "demo";
+export type ExecutionSource = "local" | "live" | "demo";
+
+export type ExecutionScope = "public_tests_only" | "full_suite" | "simulation";
 
 export interface TestCaseResult {
   id: string;
@@ -87,6 +89,7 @@ export interface ExecutionResult {
   summary: string;
   isMock: boolean;
   executionSource: ExecutionSource;
+  executionScope: ExecutionScope;
   isSimulated: boolean;
   simulationNotice?: string;
   completedAt: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ExecutionMode, ExecutionStatus, HintSet } from "@/types";
+import type { ExecutionMode, ExecutionSource, ExecutionStatus, HintSet } from "@/types";
 
 const levels: Array<{ key: keyof HintSet; label: string; detail: string }> = [
   { key: "nudge", label: "Nudge", detail: "A small conceptual clue" },
@@ -18,6 +18,7 @@ interface MentorPanelProps {
   canRequestHint: boolean;
   executionMode?: ExecutionMode;
   executionStatus?: ExecutionStatus;
+  executionSource?: ExecutionSource;
   onRequestHint: (level: number) => void;
 }
 
@@ -35,13 +36,16 @@ export function MentorPanel({
   canRequestHint,
   executionMode,
   executionStatus,
+  executionSource,
   onRequestHint,
 }: MentorPanelProps) {
   const nextLevel = Math.min(revealedHintCount + 1, levels.length);
   const allRevealed = revealedHintCount >= levels.length;
-  const hasPassed = executionStatus === "passed" && executionMode === "submit";
-  const publicExamplesPassed = executionStatus === "passed" && executionMode === "run";
+  const hasPassed = executionSource === "live" && executionStatus === "passed" && executionMode === "submit";
+  const publicExamplesPassed = executionStatus === "passed"
+    && (executionSource === "local" || executionMode === "run");
   const isSimulated = executionStatus === "simulated";
+  const isGeneralGuidance = isSimulated || executionSource === "local";
 
   return (
     <div className="space-y-3">
@@ -53,15 +57,27 @@ export function MentorPanel({
       )}
       {publicExamplesPassed && (
         <div className="rounded-xl border border-emerald-900/70 bg-emerald-950/20 px-4 py-3" role="status">
-          <p className="text-sm font-semibold text-emerald-200">Public examples passed</p>
-          <p className="mt-1 text-xs leading-5 text-emerald-100/70">Submit to verify the complete mission test suite.</p>
+          <p className="text-sm font-semibold text-emerald-200">
+            {executionSource === "local" ? "Local public examples passed" : "Public examples passed"}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-emerald-100/70">
+            {executionSource === "local"
+              ? "Hidden tests were not run. This local result does not complete or save the mission."
+              : "Submit to verify the complete mission test suite."}
+          </p>
         </div>
       )}
 
-      {isSimulated && (
+      {isGeneralGuidance && (
         <div className="rounded-xl border border-amber-800/70 bg-amber-950/20 px-4 py-3" role="status">
-          <p className="text-sm font-semibold text-amber-200">General guidance only</p>
-          <p className="mt-1 text-xs leading-5 text-amber-100/70">Demo feedback did not execute your code, so these hints are not a diagnosis of your submission.</p>
+          <p className="text-sm font-semibold text-amber-200">
+            {isSimulated ? "General guidance only" : "Hints are not server-verified"}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-amber-100/70">
+            {isSimulated
+              ? "Demo feedback did not execute your code, so these hints are not a diagnosis of your submission."
+              : "These deterministic hints are general guidance, not a server-verified diagnosis of local execution."}
+          </p>
         </div>
       )}
 
@@ -70,14 +86,16 @@ export function MentorPanel({
           <p className="text-sm font-medium text-neutral-300">
             {executionStatus === "execution_error"
               ? "Mentor guidance is unavailable for this execution."
-              : isSimulated
+              : isGeneralGuidance
                 ? "Use general mission guidance in Demo mode."
                 : executionStatus
                 ? "Trusted mentor evidence is unavailable for this run. Run it again or check the server configuration."
               : "Run your code to unlock mentor guidance."}
           </p>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            {isSimulated ? "Demo guidance is general and does not use executed code." : "Hints are based on a real result from the current version of your solution."}
+            {isGeneralGuidance
+              ? "Guidance is general and does not rely on server-verified execution evidence."
+              : "Hints are based on a trusted server execution result."}
           </p>
         </div>
       )}
@@ -145,7 +163,11 @@ export function MentorPanel({
                 : `Reveal ${levels[nextLevel - 1]?.label.toLowerCase() ?? "hint"}`}
       </button>
       <p className="text-center font-mono text-[10px] leading-5 text-neutral-600">
-        {hasPassed ? "Guidance is rule-based and grounded in the test result." : "One level at a time · grounded in the latest real test result"}
+        {hasPassed
+          ? "Guidance is deterministic and grounded in the verified server result."
+          : isGeneralGuidance
+            ? "One level at a time · general deterministic guidance"
+            : "One level at a time · based on the latest trusted server result"}
       </p>
     </div>
   );
