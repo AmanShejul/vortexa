@@ -78,3 +78,5 @@ Then open the app and verify:
 - Client-supplied IDs are not trusted for writes.
 - Full source snapshots are intentionally not stored; only attempt metadata and classification data are persisted.
 - Hidden tests, privileged execution output, and provider internals are never exposed to learner-facing records.
+- Run and Submit requests are bounded to 128 KiB total and 64 KiB of source, with an eight-second per-test limit and a 30-second execution deadline. Judge0 is configured with resource caps and network access disabled where the provider supports those fields; the actual isolation guarantees depend on the selected Judge0 deployment.
+- The run route uses an in-memory sliding-window limit (5 requests per minute per verified learner; 20 per minute in one shared anonymous bucket). This is process-local and is not globally consistent across serverless instances or restarts. Configure an upstream/shared rate limiter at deployment for production-wide abuse protection; this application does not claim the local limiter provides that protection.

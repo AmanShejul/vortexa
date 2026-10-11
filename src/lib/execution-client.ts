@@ -28,12 +28,24 @@ export function getSafeExecutionError(status: number, payload: unknown): string 
   if (code === "judge0_provider_timeout" || code === "judge0_poll_timeout") {
     return "Judge0 took too long to respond. Please try again in a moment.";
   }
+  if (code === "judge0_execution_deadline") {
+    return "The execution request exceeded its total time limit. Please try again.";
+  }
+  if (code === "judge0_provider_internal_error" || code === "judge0_invalid_response") {
+    return "The execution service returned an unusable result. No attempt was recorded; please try again.";
+  }
+  if (code === "rate_limited") {
+    return "Too many execution requests. Please wait before trying again.";
+  }
+  if (code === "judge0_request_rejected") {
+    return "The execution service rejected this request. Please check the submission and try again.";
+  }
 
   if (status === 502 || status === 503) {
     return "The code execution service is unavailable. Please try again in a moment.";
   }
   if (status === 504) {
-    return "Execution took too long. Try a smaller or more efficient solution.";
+    return "The execution service could not finish this request in time. Please try again.";
   }
 
   return "The execution request could not be completed. Please try again.";

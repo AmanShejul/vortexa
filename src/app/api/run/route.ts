@@ -7,14 +7,60 @@ import { classifyMistake } from "../../../../yash/aiMentor.js";
 import { createMentorEvidenceToken, isMentorEvidenceSigningAvailable } from "@/lib/mentor-evidence";
 import { getAuthenticatedUser, getBearerTokenFromRequest, isSupabaseConfigured, isSupabasePersistenceConfigured } from "@/lib/supabase";
 import { persistMissionAttempt } from "@/lib/learner-persistence";
+import { consumeRunRateLimit } from "@/lib/run-rate-limit";
 import type { ExecutionMode, ExecutionResult, TestCaseResult } from "@/types";
 
 const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_SOURCE_BYTES = 64 * 1024;
 const TOTAL_EXECUTION_TIMEOUT_MS = 30_000;
 
-function errorResponse(status: 400 | 404 | 413 | 422 | 500 | 502 | 503 | 504, code: string, message: string) {
-  return NextResponse.json({ error: { code, message } }, { status });
+function errorResponse(
+  status: 400 | 404 | 413 | 422 | 429 | 500 | 502 | 503 | 504,
+  code: string,
+  message: string,
+  headers?: HeadersInit,
+) {
+  return NextResponse.json({ error: { code, message } }, { status, headers });
+}
+
+async function readBoundedRequestBody(request: Request): Promise<{ body?: string; tooLarge?: boolean; invalid?: boolean }> {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > MAX_REQUEST_BYTES) {
+    return { tooLarge: true };
+  }
+  if (!request.body) return { body: "" };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_REQUEST_BYTES) {
+        await reader.cancel();
+        return { tooLarge: true };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { invalid: true };
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return { body: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
+  } catch {
+    return { invalid: true };
+  }
 }
 
 function truncate(value: string | undefined, maxLength = 4_000): string | undefined {
@@ -141,19 +187,17 @@ function createResult(mode: ExecutionMode, tests: TestCaseResult[], totalTests: 
 }
 
 export async function POST(request: Request) {
-  let rawBody: string;
-  try {
-    rawBody = await request.text();
-  } catch {
-    return errorResponse(400, "invalid_request", "The request body could not be read.");
-  }
-  if (Buffer.byteLength(rawBody, "utf8") > MAX_REQUEST_BYTES) {
+  const boundedBody = await readBoundedRequestBody(request);
+  if (boundedBody.tooLarge) {
     return errorResponse(413, "request_too_large", "The execution request is too large.");
+  }
+  if (boundedBody.invalid || boundedBody.body === undefined) {
+    return errorResponse(400, "invalid_request", "The request body could not be read.");
   }
 
   let body: unknown;
   try {
-    body = JSON.parse(rawBody);
+    body = JSON.parse(boundedBody.body);
   } catch {
     return errorResponse(400, "invalid_json", "The request body must be valid JSON.");
   }
@@ -192,25 +236,6 @@ export async function POST(request: Request) {
     return errorResponse(500, "missing_test_definition", "This mission is not configured for execution.");
   }
 
-  const tests: TestCaseResult[] = [];
-  const startedAt = Date.now();
-  try {
-    for (const testCase of testCases) {
-      if (Date.now() - startedAt >= TOTAL_EXECUTION_TIMEOUT_MS) {
-        throw new Judge0ServiceError("The execution request exceeded its total time limit.", 504);
-      }
-      const harnessSource = buildPythonHarness(mission, testCase, sourceCode);
-      const judgeResult = await executePython(harnessSource);
-      tests.push(evaluateTest(testCase, judgeResult));
-    }
-  } catch (error) {
-    if (error instanceof Judge0ServiceError) {
-      return errorResponse(error.httpStatus, `judge0_${error.code}`, error.message);
-    }
-    return errorResponse(500, "execution_failed", "The execution request could not be completed.");
-  }
-
-  const executionResult = createResult(mode, tests, testCases.length);
   const authorizationWasProvided = Boolean(getBearerTokenFromRequest(request));
   let user: Awaited<ReturnType<typeof getAuthenticatedUser>> = null;
   let identityVerified = !isSupabaseConfigured() || !authorizationWasProvided;
@@ -228,6 +253,60 @@ export async function POST(request: Request) {
       user = null;
     }
   }
+  const rateLimit = consumeRunRateLimit(user
+    ? { kind: "learner", userId: user.id }
+    : { kind: "anonymous" });
+  if (!rateLimit.allowed) {
+    return errorResponse(
+      429,
+      "rate_limited",
+      "Too many execution requests. Please wait before trying again.",
+      { "Retry-After": String(rateLimit.retryAfterSeconds) },
+    );
+  }
+
+  const tests: TestCaseResult[] = [];
+  const deadlineAt = Date.now() + TOTAL_EXECUTION_TIMEOUT_MS;
+  const executionController = new AbortController();
+  const deadlineTimer = setTimeout(() => executionController.abort(), TOTAL_EXECUTION_TIMEOUT_MS);
+  try {
+    for (const testCase of testCases) {
+      if (Date.now() >= deadlineAt) {
+        throw new Judge0ServiceError("The execution request exceeded its total time limit.", 504, "execution_deadline");
+      }
+      const harnessSource = buildPythonHarness(mission, testCase, sourceCode);
+      const judgeResult = await executePython(harnessSource, undefined, {
+        deadlineAt,
+        perTestTimeoutMs: 8_000,
+        signal: executionController.signal,
+      });
+      if (judgeResult.statusId === 13 || judgeResult.statusId === 14) {
+        throw new Judge0ServiceError(
+          "Code execution service encountered an internal error.",
+          502,
+          "provider_internal_error",
+        );
+      }
+      const testResult = evaluateTest(testCase, judgeResult);
+      if (testResult.status === "execution_error") {
+        throw new Judge0ServiceError(
+          "Code execution service returned an invalid execution result.",
+          502,
+          "invalid_response",
+        );
+      }
+      tests.push(testResult);
+    }
+  } catch (error) {
+    if (error instanceof Judge0ServiceError) {
+      return errorResponse(error.httpStatus, `judge0_${error.code}`, error.message);
+    }
+    return errorResponse(500, "execution_failed", "The execution request could not be completed.");
+  } finally {
+    clearTimeout(deadlineTimer);
+  }
+
+  const executionResult = createResult(mode, tests, testCases.length);
 
   if (executionResult.status !== "execution_error" && identityVerified && isMentorEvidenceSigningAvailable()) {
     executionResult.mentorEvidenceToken = createMentorEvidenceToken({

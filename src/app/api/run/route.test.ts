@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   isSupabaseConfigured: vi.fn(),
   isSupabasePersistenceConfigured: vi.fn(),
   persistMissionAttempt: vi.fn(),
+  consumeRunRateLimit: vi.fn(),
 }));
 
 vi.mock("@/lib/judge0", async (importOriginal) => {
@@ -23,6 +24,10 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/learner-persistence", () => ({
   persistMissionAttempt: mocks.persistMissionAttempt,
+}));
+
+vi.mock("@/lib/run-rate-limit", () => ({
+  consumeRunRateLimit: mocks.consumeRunRateLimit,
 }));
 
 import { POST } from "@/app/api/run/route";
@@ -66,6 +71,7 @@ beforeEach(() => {
   mocks.isSupabaseConfigured.mockReset();
   mocks.isSupabasePersistenceConfigured.mockReset();
   mocks.persistMissionAttempt.mockReset();
+  mocks.consumeRunRateLimit.mockReset();
   mocks.getBearerTokenFromRequest.mockImplementation((request: Request) =>
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null,
   );
@@ -73,6 +79,7 @@ beforeEach(() => {
   mocks.isSupabasePersistenceConfigured.mockReturnValue(true);
   mocks.getAuthenticatedUser.mockResolvedValue({ id: "verified-learner" });
   mocks.persistMissionAttempt.mockResolvedValue({ id: "trusted-attempt", skipped: false });
+  mocks.consumeRunRateLimit.mockReturnValue({ allowed: true, retryAfterSeconds: 0 });
 });
 
 afterEach(() => {
@@ -153,13 +160,64 @@ describe("POST /api/run progress integrity", () => {
     const response = await POST(makeRequest());
     const result = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(result.status).toBe("execution_error");
+    expect(response.status).toBe(502);
+    expect(result.error.code).toBe("judge0_provider_internal_error");
     expect(result.mentorEvidenceToken).toBeUndefined();
-    expect(mocks.persistMissionAttempt).toHaveBeenCalledWith(expect.objectContaining({
-      executionStatus: "execution_error",
-      mistakeCategory: undefined,
+    expect(mocks.persistMissionAttempt).not.toHaveBeenCalled();
+  });
+
+  it("uses only the verified learner ID for authenticated rate limiting", async () => {
+    configureSuccessfulExecution();
+    await POST(makeRequest());
+    expect(mocks.consumeRunRateLimit).toHaveBeenCalledWith({ kind: "learner", userId: "verified-learner" });
+  });
+
+  it("returns 429 before execution when the rate limit is reached", async () => {
+    mocks.consumeRunRateLimit.mockReturnValue({ allowed: false, retryAfterSeconds: 17 });
+    const response = await POST(makeRequest());
+    const result = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("17");
+    expect(result.error.code).toBe("rate_limited");
+    expect(mocks.executePython).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized streamed bodies without executing code", async () => {
+    const response = await POST(new Request("http://localhost/api/run", {
+      method: "POST",
+      body: JSON.stringify({ sourceCode: "x".repeat(129 * 1024) }),
     }));
+    const result = await response.json();
+
+    expect(response.status).toBe(413);
+    expect(result.error.code).toBe("request_too_large");
+    expect(mocks.executePython).not.toHaveBeenCalled();
+  });
+
+  it("does not persist or issue evidence when the harness result is malformed", async () => {
+    mocks.executePython.mockResolvedValue({ statusId: 3, statusDescription: "Accepted", stdout: "unrecognized output" });
+
+    const response = await POST(makeRequest());
+    const result = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(result.error.code).toBe("judge0_invalid_response");
+    expect(mocks.persistMissionAttempt).not.toHaveBeenCalled();
+    expect(result.mentorEvidenceToken).toBeUndefined();
+  });
+
+  it("uses public examples for Run and the full suite for Submit", async () => {
+    configureSuccessfulExecution();
+
+    const runResponse = await POST(makeRequest("run"));
+    const runResult = await runResponse.json();
+    const submitResponse = await POST(makeRequest("submit"));
+    const submitResult = await submitResponse.json();
+
+    expect(runResult.totalTests).toBeLessThan(submitResult.totalTests);
+    expect(runResult.tests.every((test: { id: string }) => test.id.startsWith("public-"))).toBe(true);
+    expect(submitResult.tests.some((test: { id: string }) => !test.id.startsWith("public-"))).toBe(true);
   });
 
   it("reports database persistence failure separately from a genuinely passing execution", async () => {

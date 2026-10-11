@@ -52,4 +52,92 @@ describe("Judge0 execution client", () => {
     const [pollUrl] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(pollUrl).toContain("/submissions/submission-token?base64_encoded=true");
   });
+
+  it("classifies provider authentication failures without treating them as learner errors", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      code: "authentication_failed",
+      httpStatus: 503,
+    } satisfies Partial<Judge0ServiceError>);
+  });
+
+  it("rejects missing submission tokens and malformed provider JSON", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 201 }))
+      .mockResolvedValueOnce(new Response("{not-json", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({ code: "invalid_response" });
+
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(new Response("{not-json", { status: 201 }));
+    await expect(executePython("print('hello')")).rejects.toMatchObject({ code: "invalid_response" });
+  });
+
+  it("treats Judge0 internal execution statuses as provider failures", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ token: "token" }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        status_id: 13,
+        status: { id: 13, description: "Internal Error" },
+      }), { status: 200 })));
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      code: "provider_internal_error",
+      httpStatus: 502,
+    } satisfies Partial<Judge0ServiceError>);
+  });
+
+  it("stops polling when a per-test deadline expires", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ token: "token" }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        status_id: 1,
+        status: { id: 1, description: "In Queue" },
+      }), { status: 200 })));
+
+    await expect(executePython("print('hello')", undefined, { perTestTimeoutMs: 30 })).rejects.toMatchObject({
+      code: "poll_timeout",
+      httpStatus: 504,
+    } satisfies Partial<Judge0ServiceError>);
+  });
+
+  it("stops polling at the overall execution deadline", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ token: "token" }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        status_id: 2,
+        status: { id: 2, description: "Processing" },
+      }), { status: 200 })));
+
+    await expect(executePython("print('hello')", undefined, {
+      deadlineAt: Date.now() + 30,
+      perTestTimeoutMs: 1_000,
+    })).rejects.toMatchObject({
+      code: "execution_deadline",
+      httpStatus: 504,
+    } satisfies Partial<Judge0ServiceError>);
+  });
+
+  it("rejects malformed base64 output and never logs provider response details", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ token: "token" }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        stdout: "not-base64!",
+        status_id: 3,
+        status: { id: 3, description: "Accepted" },
+      }), { status: 200 })));
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      code: "invalid_response",
+      message: "Code execution service returned an invalid response.",
+    });
+  });
 });
