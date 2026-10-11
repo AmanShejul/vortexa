@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { generateProgressiveHints } from "../../../../yash/aiMentor.js";
+import { generateGeneralMissionHints, generateProgressiveHints } from "../../../../yash/aiMentor.js";
 import { getMission } from "@/lib/missions";
 import { createMentorEvidenceToken, isMentorEvidenceSigningAvailable, verifyMentorEvidenceToken } from "@/lib/mentor-evidence";
 import { getAuthenticatedUser, isSupabaseConfigured } from "@/lib/supabase";
+import { consumeRunRateLimit } from "@/lib/run-rate-limit";
 import type { ExecutionMode } from "@/types";
 
 const MAX_BODY_BYTES = 128 * 1024;
@@ -34,27 +35,28 @@ export async function POST(request: Request) {
   const evidenceToken = body.evidenceToken;
   const mode = body.mode;
   const hintLevel = body.hintLevel;
+  const general = body.general === true;
 
   if (typeof missionId !== "string" || !/^[a-z0-9-]{1,80}$/.test(missionId)) {
     return errorResponse("A valid mission ID is required.", 400);
   }
   if (!getMission(missionId)) return errorResponse("Unknown mission.", 404);
-  if (typeof sourceCode !== "string" || sourceCode.trim().length === 0) {
-    return errorResponse("Python source code is required.", 400);
-  }
-  if (Buffer.byteLength(sourceCode, "utf8") > MAX_SOURCE_BYTES) {
-    return errorResponse("Source code is too large.", 413);
-  }
-  if (typeof evidenceToken !== "string" || evidenceToken.length === 0) {
-    return errorResponse("Run your code again to get trusted mentor guidance.", 400);
-  }
   if (mode !== "run" && mode !== "submit") {
     return errorResponse("Execution mode must be run or submit.", 400);
   }
   if (typeof hintLevel !== "number" || !Number.isInteger(hintLevel) || hintLevel < 1 || hintLevel > 3) {
     return errorResponse("Hint level must be an integer from 1 to 3.", 400);
   }
-  if (!isMentorEvidenceSigningAvailable()) {
+  if (!general && (typeof sourceCode !== "string" || sourceCode.trim().length === 0)) {
+    return errorResponse("Python source code is required.", 400);
+  }
+  if (!general && typeof sourceCode === "string" && Buffer.byteLength(sourceCode, "utf8") > MAX_SOURCE_BYTES) {
+    return errorResponse("Source code is too large.", 413);
+  }
+  if (!general && (typeof evidenceToken !== "string" || evidenceToken.length === 0)) {
+    return errorResponse("Run your code again to get trusted mentor guidance.", 400);
+  }
+  if (!general && !isMentorEvidenceSigningAvailable()) {
     return errorResponse("Mentor evidence signing is unavailable. Check the server configuration.", 503);
   }
 
@@ -67,9 +69,35 @@ export async function POST(request: Request) {
     }
   }
 
-  const verification = verifyMentorEvidenceToken(evidenceToken, {
+  if (general) {
+    const rateLimit = consumeRunRateLimit(userId
+      ? { kind: "learner", userId }
+      : { kind: "anonymous" });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many mentor requests. Please wait before trying again." },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+      );
+    }
+
+    const guidance = generateGeneralMissionHints(getMission(missionId), hintLevel);
+    const hintKey = `level${hintLevel}` as "level1" | "level2" | "level3";
+    return NextResponse.json({
+      category: "GENERAL_GUIDANCE",
+      explanation: guidance.explanation,
+      hint: guidance[hintKey],
+      hintLevel,
+      isFallback: true,
+      isSimulated: true,
+      guidanceSource: "general",
+    });
+  }
+
+  const validatedSourceCode = typeof sourceCode === "string" ? sourceCode : "";
+  const validatedEvidenceToken = typeof evidenceToken === "string" ? evidenceToken : "";
+  const verification = verifyMentorEvidenceToken(validatedEvidenceToken, {
     missionId,
-    sourceCode,
+    sourceCode: validatedSourceCode,
     mode: mode as ExecutionMode,
     userId,
     hintLevel,
@@ -103,11 +131,12 @@ export async function POST(request: Request) {
     hint: guidance[hintKey],
     hintLevel,
     isFallback: true,
+    guidanceSource: "execution",
     ...(hintLevel < 3
       ? {
           nextEvidenceToken: createMentorEvidenceToken({
             missionId: evidence.missionId,
-            sourceCode,
+            sourceCode: validatedSourceCode,
             mode: evidence.mode,
             userId: evidence.userId,
             status: evidence.status,

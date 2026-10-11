@@ -92,6 +92,29 @@ export function generateProgressiveHints(category, executionResult) {
   }
 }
 
+// Safe guidance path used when live execution is unavailable. It is
+// intentionally not tied to learner code or fabricated execution evidence.
+export function generateGeneralMissionHints(mission, hintLevel = 1) {
+  const safeLevel = Math.min(3, Math.max(1, Number(hintLevel) || 1));
+  const functionName = typeof mission?.execution?.functionName === "string"
+    ? mission.execution.functionName
+    : "the required function";
+  const title = typeof mission?.title === "string" ? mission.title : "this mission";
+  const hints = [
+    `Start by restating what ${title} must return for one ordinary input. Keep the work inside ${functionName} and focus on the mission's stated return value.`,
+    `Trace the inputs from ${functionName} to its return statement. Check the condition, loop boundary, or accumulator that directly represents the mission rule.`,
+    `Compare your planned steps with each visible example and then check the smallest, largest, empty, or boundary case described in the constraints. Correct the first step where your reasoning diverges.`,
+  ];
+
+  return {
+    explanation: `General mission guidance for ${title}. No learner code was executed, so this is not a diagnosis of your submission.`,
+    level1: hints[0],
+    level2: hints[1],
+    level3: hints[2],
+    requestedLevel: safeLevel,
+  };
+}
+
 export function processSubmissionAI(userCode, executionResult, mission, hintLevel = 1) {
   const safeLevel = Math.min(3, Math.max(1, Number(hintLevel) || 1));
   const category = classifyMistake(userCode, executionResult);

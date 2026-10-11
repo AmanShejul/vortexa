@@ -17,6 +17,6 @@ describe("execution client errors", () => {
         code: "judge0_provider_unavailable",
         message: "private upstream detail",
       },
-    })).toBe("The code execution service is unavailable. Please try again in a moment.");
+    })).toContain("Live Python execution is unavailable");
   });
 });

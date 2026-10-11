@@ -57,7 +57,10 @@ export type ExecutionStatus =
   | "compilation_error"
   | "runtime_error"
   | "time_limit_exceeded"
-  | "execution_error";
+  | "execution_error"
+  | "simulated";
+
+export type ExecutionSource = "live" | "demo";
 
 export interface TestCaseResult {
   id: string;
@@ -69,6 +72,7 @@ export interface TestCaseResult {
     | "runtime_error"
     | "time_limit_exceeded"
     | "execution_error"
+    | "simulated"
     | "pending";
   durationMs?: number;
   expectedOutput?: string;
@@ -82,6 +86,9 @@ export interface ExecutionResult {
   status: ExecutionStatus;
   summary: string;
   isMock: boolean;
+  executionSource: ExecutionSource;
+  isSimulated: boolean;
+  simulationNotice?: string;
   completedAt: string;
   tests: TestCaseResult[];
   totalTests: number;
@@ -160,7 +167,8 @@ export type MentorMistakeCategory =
   | "INCORRECT_LOGIC"
   | "SYNTAX_OR_RUNTIME"
   | "OUTPUT_FORMAT_MISMATCH"
-  | "UNKNOWN_ERROR";
+  | "UNKNOWN_ERROR"
+  | "GENERAL_GUIDANCE";
 
 export interface MentorResponse {
   category: MentorMistakeCategory;
@@ -168,6 +176,8 @@ export interface MentorResponse {
   hint: string;
   hintLevel: 1 | 2 | 3;
   isFallback: boolean;
+  isSimulated?: boolean;
+  guidanceSource?: "execution" | "general";
   nextEvidenceToken?: string;
   recommendedNextMissionId?: string;
 }

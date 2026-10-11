@@ -1,13 +1,13 @@
 # Vortexa / CodeQuest AI
 
-This project is a guided Python learning workspace built around canonical mission prompts, a deterministic mentor, and Judge0-backed execution. Phase 3 adds Supabase persistence for learner records, mission attempts, completion records, and mistake history.
+This project is a guided Python learning workspace built around canonical mission prompts, a deterministic mentor, optional Judge0-backed execution, and an explicit no-provider demo mode. Phase 3 adds Supabase persistence for learner records, mission attempts, completion records, and mistake history.
 
 ## Prerequisites
 
 - Node.js 20+
 - npm
-- A Supabase project
-- A Judge0-compatible execution endpoint
+- A Supabase project (optional for local demo mode)
+- A Judge0-compatible execution endpoint (optional; required only for live Python execution)
 
 ## Supabase project setup
 
@@ -23,13 +23,13 @@ Copy `.env.example` to `.env.local` and replace placeholders:
 - `SUPABASE_URL`: project URL
 - `SUPABASE_ANON_KEY`: anon key for server-side auth APIs
 - `SUPABASE_SERVICE_ROLE_KEY`: service-role key for server-side writes; never expose it via `NEXT_PUBLIC_*`
-- `JUDGE0_API_URL`: **required for code execution**; base URL from a Judge0-compatible provider or self-hosted deployment. The app appends `/submissions`.
+- `JUDGE0_API_URL`: optional for demo mode; required only for live Python execution. Base URL from a Judge0-compatible provider or self-hosted deployment. The app appends `/submissions`.
 - `JUDGE0_API_KEY`: optional Judge0 API key
 - `JUDGE0_AUTH_HEADER`, `JUDGE0_AUTH_PREFIX`: optional auth header overrides
 - `JUDGE0_PYTHON_LANGUAGE_ID`: optional Python language ID (defaults to `71`, Judge0 CE Python 3.8.1)
 - `MENTOR_EVIDENCE_SECRET`: optional server-only random secret of at least 32 bytes. Set the same value on all production instances so signed mentor evidence works across requests and restarts. If unset, a cryptographically random process-local key is used; local single-process development works, but outstanding evidence expires on restart and multi-instance deployments may reject a token issued by another instance. Never expose this variable with a `NEXT_PUBLIC_*` name.
 
-Get the endpoint URL and any required key from the Judge0 service provider or deployment administrator. Copy `.env.example` to `.env.local`, replace the Judge0 placeholders with those values, then restart `npm run dev`. The example URL is intentionally non-functional; without `JUDGE0_API_URL`, Run Code and Submit Mission return a configuration error and no execution is attempted. The default auth header is `X-Auth-Token`; set `JUDGE0_AUTH_HEADER` and `JUDGE0_AUTH_PREFIX` to the values required by your compatible service.
+Get the endpoint URL and any required key from the Judge0 service provider or deployment administrator. Copy `.env.example` to `.env.local`, replace the Judge0 placeholders with those values, then restart `npm run dev` if live execution is needed. The arena starts in **DEMO MODE — simulated feedback**, which requires no Judge0 credentials and never executes learner code. Demo responses use public sample labels only, are marked `executionSource: "demo"` / `isSimulated: true`, cannot complete missions, and are not persisted as learner achievements. Choose “Use live Judge0” for genuine execution. Without `JUDGE0_API_URL`, live mode shows an actionable configuration message rather than falling back to simulated success. The default auth header is `X-Auth-Token`; set `JUDGE0_AUTH_HEADER` and `JUDGE0_AUTH_PREFIX` to the values required by your compatible service.
 
 ## Applying SQL migrations
 

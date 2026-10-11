@@ -8,6 +8,7 @@ import { createMentorEvidenceToken, isMentorEvidenceSigningAvailable } from "@/l
 import { getAuthenticatedUser, getBearerTokenFromRequest, isSupabaseConfigured, isSupabasePersistenceConfigured } from "@/lib/supabase";
 import { persistMissionAttempt } from "@/lib/learner-persistence";
 import { consumeRunRateLimit } from "@/lib/run-rate-limit";
+import { createDemoExecutionResult } from "@/lib/demo-execution";
 import type { ExecutionMode, ExecutionResult, TestCaseResult } from "@/types";
 
 const MAX_REQUEST_BYTES = 128 * 1024;
@@ -188,6 +189,8 @@ function createResult(mode: ExecutionMode, tests: TestCaseResult[], totalTests: 
     failedTests,
     allPassed,
     mode,
+    executionSource: "live",
+    isSimulated: false,
     ...(errorMessage ? { errorMessage } : {}),
   };
 }
@@ -216,6 +219,7 @@ export async function POST(request: Request) {
   const sourceCode = requestBody.sourceCode;
   const language = requestBody.language;
   const mode = requestBody.mode;
+  const executionSource = requestBody.executionSource ?? "live";
   if (typeof missionId !== "string" || !/^[a-z0-9-]+$/.test(missionId)) {
     return errorResponse(400, "invalid_mission_id", "A valid mission ID is required.");
   }
@@ -230,6 +234,9 @@ export async function POST(request: Request) {
   }
   if (mode !== "run" && mode !== "submit") {
     return errorResponse(400, "invalid_mode", "Execution mode must be run or submit.");
+  }
+  if (executionSource !== "live" && executionSource !== "demo") {
+    return errorResponse(400, "invalid_execution_source", "Execution source must be live or demo.");
   }
 
   const mission = getMission(missionId);
@@ -269,6 +276,10 @@ export async function POST(request: Request) {
       "Too many execution requests. Please wait before trying again.",
       { "Retry-After": String(rateLimit.retryAfterSeconds) },
     );
+  }
+
+  if (executionSource === "demo") {
+    return NextResponse.json(createDemoExecutionResult(missionId, mode));
   }
 
   const tests: TestCaseResult[] = [];

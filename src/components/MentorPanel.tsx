@@ -41,6 +41,7 @@ export function MentorPanel({
   const allRevealed = revealedHintCount >= levels.length;
   const hasPassed = executionStatus === "passed" && executionMode === "submit";
   const publicExamplesPassed = executionStatus === "passed" && executionMode === "run";
+  const isSimulated = executionStatus === "simulated";
 
   return (
     <div className="space-y-3">
@@ -57,17 +58,26 @@ export function MentorPanel({
         </div>
       )}
 
+      {isSimulated && (
+        <div className="rounded-xl border border-amber-800/70 bg-amber-950/20 px-4 py-3" role="status">
+          <p className="text-sm font-semibold text-amber-200">General guidance only</p>
+          <p className="mt-1 text-xs leading-5 text-amber-100/70">Demo feedback did not execute your code, so these hints are not a diagnosis of your submission.</p>
+        </div>
+      )}
+
       {!canRequestHint && !hasPassed && (
         <div className="rounded-xl border border-[#292929] bg-[#0b0b0b] px-4 py-3">
           <p className="text-sm font-medium text-neutral-300">
             {executionStatus === "execution_error"
               ? "Mentor guidance is unavailable for this execution."
-              : executionStatus
+              : isSimulated
+                ? "Use general mission guidance in Demo mode."
+                : executionStatus
                 ? "Trusted mentor evidence is unavailable for this run. Run it again or check the server configuration."
               : "Run your code to unlock mentor guidance."}
           </p>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Hints are based on a real result from the current version of your solution.
+            {isSimulated ? "Demo guidance is general and does not use executed code." : "Hints are based on a real result from the current version of your solution."}
           </p>
         </div>
       )}

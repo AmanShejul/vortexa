@@ -9,6 +9,7 @@ const statusLabels: Record<ExecutionStatus, string> = {
   runtime_error: "Runtime error",
   time_limit_exceeded: "Timed out",
   execution_error: "Execution service error",
+  simulated: "Simulated demo",
 };
 
 const testStatusLabels: Record<TestCaseResult["status"], string> = {
@@ -19,6 +20,7 @@ const testStatusLabels: Record<TestCaseResult["status"], string> = {
   runtime_error: "Runtime error",
   time_limit_exceeded: "Timed out",
   execution_error: "Execution error",
+  simulated: "Sample only",
 };
 
 function statusTone(status: ExecutionStatus | TestCaseResult["status"]): string {
@@ -29,6 +31,7 @@ function statusTone(status: ExecutionStatus | TestCaseResult["status"]): string 
   if (status === "compilation_error" || status === "runtime_error" || status === "execution_error") {
     return "border-rose-900/70 bg-rose-950/25 text-rose-100";
   }
+  if (status === "simulated") return "border-amber-800/70 bg-amber-950/20 text-amber-200";
   return "border-[#404040] bg-[#181818] text-neutral-300";
 }
 
@@ -68,7 +71,7 @@ export function TestResults({ result }: { result: ExecutionResult | null }) {
   const timeLabel = Number.isNaN(completedAt.getTime())
     ? null
     : completedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const isPassed = result.status === "passed" && result.allPassed;
+  const isPassed = result.executionSource === "live" && !result.isSimulated && result.status === "passed" && result.allPassed;
   const completedMission = isPassed && result.mode === "submit";
 
   return (
@@ -79,7 +82,12 @@ export function TestResults({ result }: { result: ExecutionResult | null }) {
             <span className={`inline-flex rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${statusTone(result.status)}`}>
               {statusLabels[result.status]}
             </span>
-            <p className="mt-3 text-sm leading-6 text-neutral-200">{result.summary}</p>
+              <p className="mt-3 text-sm leading-6 text-neutral-200">{result.summary}</p>
+            {result.isSimulated && (
+              <p className="mt-3 rounded-lg border border-amber-800/70 bg-amber-950/20 px-3 py-2 text-xs leading-5 text-amber-100" role="status">
+                DEMO MODE — simulated feedback. {result.simulationNotice ?? "Your Python code was not executed, and this result cannot complete the mission."}
+              </p>
+            )}
             <p className="mt-1 text-xs text-neutral-500">
               {result.passedTests} of {result.totalTests} tests passed
             </p>

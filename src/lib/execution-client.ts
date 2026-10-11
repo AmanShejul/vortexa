@@ -1,4 +1,4 @@
-import type { ExecutionMode, ExecutionResult } from "@/types";
+import type { ExecutionMode, ExecutionResult, ExecutionSource } from "@/types";
 import { getBrowserAccessToken } from "@/lib/supabase";
 
 const CLIENT_TIMEOUT_MS = 35_000;
@@ -14,7 +14,7 @@ export function getSafeExecutionError(status: number, payload: unknown): string 
   const code = typeof error === "object" && error !== null ? error.code : undefined;
 
   if (code === "judge0_configuration_missing") {
-    return "Python execution is not configured. Add your Judge0 API URL as JUDGE0_API_URL in .env.local, then restart the app.";
+    return "Live Python execution is unavailable because Judge0 is not configured. Switch to Demo mode for labelled sample feedback, or add JUDGE0_API_URL in .env.local and restart the app.";
   }
   if (code === "judge0_configuration_invalid") {
     return "The Judge0 URL or Python language ID is invalid. Check JUDGE0_API_URL and JUDGE0_PYTHON_LANGUAGE_ID in .env.local.";
@@ -39,7 +39,7 @@ export function getSafeExecutionError(status: number, payload: unknown): string 
   }
 
   if (status === 502 || status === 503) {
-    return "The code execution service is unavailable. Please try again in a moment.";
+    return "Live Python execution is unavailable right now. Switch to Demo mode for labelled sample feedback, or try again after the execution service is restored.";
   }
   if (status === 504) {
     return "The execution service could not finish this request in time. Please try again.";
@@ -52,6 +52,7 @@ export async function executeMission(
   missionId: string,
   sourceCode: string,
   mode: ExecutionMode,
+  executionSource: ExecutionSource = "live",
 ): Promise<ExecutionResult> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
@@ -64,7 +65,7 @@ export async function executeMission(
     const response = await fetch("/api/run", {
       method: "POST",
       headers,
-      body: JSON.stringify({ missionId, sourceCode, language: "python", mode }),
+      body: JSON.stringify({ missionId, sourceCode, language: "python", mode, executionSource }),
       signal: controller.signal,
     });
 
