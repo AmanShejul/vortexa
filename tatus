@@ -1,0 +1,19 @@
+* [33m6917537[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mintegration/codequest-main-20261011[m[33m)[m Complete CodeQuest AI execution improvements
+* [33mb340597[m Update CodeQuest AI features and improvements
+* [33m46b3642[m added test and safe progressive hints
+* [33ma8e9c8e[m feat: add Supabase persistence and auth
+* [33m8fa5357[m Add coding mission drafts
+*   [33mde77b5a[m Merge remote main history into CodeQuest
+[32m|[m[33m\[m  
+[32m|[m * [33me2d8f8b[m Update vortexa
+* [33m|[m   [33me0678d6[m Merge Pankaj mission drafts history
+[34m|[m[35m\[m [33m\[m  
+* [35m\[m [33m\[m   [33mcf4aa78[m Merge Yash AI mentor history
+[36m|[m[1;31m\[m [35m\[m [33m\[m  
+[36m|[m * [35m|[m [33m|[m [33mb9f578a[m[33m ([m[1;31morigin/feat/yash-ai-mentor[m[33m)[m feat: add AI mentor logic and test files
+* [1;31m|[m [35m|[m [33m|[m   [33mace83d7[m Merge Swapnil backend history
+[1;32m|[m[1;33m\[m [1;31m\[m [35m\[m [33m\[m  
+[1;32m|[m * [1;31m|[m [35m|[m [33m|[m [33me9ff37d[m[33m ([m[1;31morigin/feat/swapnil-backend[m[33m)[m feat: add missions listing API
+[1;32m|[m * [1;31m|[m [35m|[m [33m|[m [33m91ae06a[m chore: initialize Next.js project
+* [1;33m|[m [1;31m|[m [35m|[m [33m|[m [33m71e4c12[m[33m ([m[1;32mfeat/aman-frontend[m[33m, [m[1;32mbackup/before-codequest-main-integration-20261011[m[33m, [m[1;32mbackup/aman-frontend[m[33m)[m Build CodeQuest AI frontend
+* [1;33m|[m [1;31m|[m [35m|[m [33m|[m [33ma3389e5[m frontend updated
