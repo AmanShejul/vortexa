@@ -1,0 +1,166 @@
+{
+  "draft_notice": {
+    "status": "PROVISIONAL",
+    "schema_status": "Not team-approved; temporary hand-authored JSON draft.",
+    "mission_id": "two-sum"
+  },
+  "title": "Two Sum",
+  "problem_statement": "Given a list of integers and a target, determine whether two elements at different indices add up to the target. Each list element may be used only once in a pair; two equal values can form a valid pair only if they occur at two separate indices. Print `YES` if a valid pair exists and `NO` otherwise. Aim for expected O(n) time using a set while scanning the list.",
+  "difficulty": "Medium",
+  "concept_tags": [
+    "arrays-lists",
+    "hash-sets",
+    "problem-solving",
+    "single-pass"
+  ],
+  "constraints": [
+    "0 <= n <= 100000",
+    "-1000000000 <= each list value <= 1000000000",
+    "-2000000000 <= target <= 2000000000"
+  ],
+  "input_format": "Three lines. The first line contains n, the number of values. The second line contains exactly n space-separated integers; if n is 0, this line is blank. The third line contains the target integer.",
+  "output_format": "Print exactly `YES` if two values from different indices sum to the target; otherwise print exactly `NO`.",
+  "starter_code": "def main():\n    n = int(input())\n    values_line = input()\n    numbers = list(map(int, values_line.split()))\n    target = int(input())\n\n    # TODO: Keep track of values from earlier indices as you scan.\n    # TODO: Check whether a needed partner has already appeared.\n    print(\"NO\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "public_samples": [
+    {
+      "id": "sample-1",
+      "input": "4\n2 7 11 15\n9\n",
+      "output": "YES\n",
+      "explanation": "The values 2 and 7 are at different indices and add to 9."
+    },
+    {
+      "id": "sample-2",
+      "input": "3\n3 3 8\n6\n",
+      "output": "YES\n",
+      "explanation": "The two 3 values occur at distinct indices and add to 6."
+    },
+    {
+      "id": "sample-3",
+      "input": "1\n3\n6\n",
+      "output": "NO\n",
+      "explanation": "The single 3 cannot be used twice; only one list index is available."
+    },
+    {
+      "id": "sample-4",
+      "input": "3\n1 2 4\n8\n",
+      "output": "NO\n",
+      "explanation": "No two distinct list elements add to 8."
+    },
+    {
+      "id": "sample-5",
+      "input": "0\n\n0\n",
+      "output": "NO\n",
+      "explanation": "An empty list contains no pair, even when the target is zero."
+    },
+    {
+      "id": "sample-6",
+      "input": "4\n-5 2 8 -1\n7\n",
+      "output": "YES\n",
+      "explanation": "-1 and 8 occur at different indices and add to 7."
+    }
+  ],
+  "hints": [
+    "For each value, ask what partner would be needed to reach the target.",
+    "Remember that a partner must come from a different index. Previously seen values are safe candidates; the current value should not be paired with itself before it has been recorded.",
+    "Scan once while storing prior values in a set. For each number, check whether `target - number` is already in the set, then add the current number if no pair was found. This gives expected O(n) time."
+  ],
+  "common_beginner_mistakes": [
+    "Using the current number as its own partner when only one matching element exists.",
+    "Checking for a complement after adding the current number to the seen set, which can incorrectly reuse the same index.",
+    "Checking whether the target itself is in the list instead of checking for two addends.",
+    "Forgetting that duplicate values at different indices can form a valid pair.",
+    "Returning `YES` as soon as any number is seen without confirming its complement.",
+    "Using nested loops over every pair, which can take O(n squared) time for large lists.",
+    "Failing to handle n = 0 and its required blank values line."
+  ],
+  "completion_criteria": [
+    "Reads exactly three lines, including a blank second line when n is 0.",
+    "Uses two distinct indices for every candidate pair.",
+    "Correctly handles repeated values, negative values, and empty or one-element lists.",
+    "Uses a set-based scan with expected O(n) time.",
+    "Prints exactly `YES` or `NO` with no additional output.",
+    "Passes all public samples and separately maintained private tests."
+  ],
+  "private_tests": {
+    "status": "Placeholder only; actual private cases are not included.",
+    "specification": "In approved private storage, cover empty and one-element lists, a value that would match itself but has no duplicate, valid duplicate-value pairs at different indices, positive and negative complements, no-solution lists, and maximum-length input. Do not place private inputs or expected outputs in this public mission file."
+  },
+  "qa": {
+    "checklist": [
+      {
+        "check": "Draft is marked provisional and not team-approved.",
+        "status": "passed"
+      },
+      {
+        "check": "Three-line input, empty-list line, YES/NO output, and distinct-index rule are explicit.",
+        "status": "passed"
+      },
+      {
+        "check": "Starter parses the specified input shape and leaves the set scan as TODO work.",
+        "status": "passed"
+      },
+      {
+        "check": "Public samples cover ordinary, duplicate, same-index rejection, no-pair, empty, and negative cases.",
+        "status": "passed"
+      },
+      {
+        "check": "All public sample outputs were independently verified.",
+        "status": "passed"
+      },
+      {
+        "check": "Hints progress from complement reasoning to the efficient set approach without full code.",
+        "status": "passed"
+      },
+      {
+        "check": "Expected O(n) set-based approach is appropriate for the stated maximum input size.",
+        "status": "passed"
+      },
+      {
+        "check": "At least five relevant beginner mistakes are included.",
+        "status": "passed"
+      },
+      {
+        "check": "No private test inputs or expected outputs are stored in this public draft.",
+        "status": "passed"
+      }
+    ],
+    "public_sample_results": [
+      {
+        "sample_id": "sample-1",
+        "expected_output": "YES\n",
+        "actual_output": "YES\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-2",
+        "expected_output": "YES\n",
+        "actual_output": "YES\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-3",
+        "expected_output": "NO\n",
+        "actual_output": "NO\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-4",
+        "expected_output": "NO\n",
+        "actual_output": "NO\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-5",
+        "expected_output": "NO\n",
+        "actual_output": "NO\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-6",
+        "expected_output": "YES\n",
+        "actual_output": "YES\n",
+        "status": "passed"
+      }
+    ]
+  }
+}

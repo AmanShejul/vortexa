@@ -1,0 +1,144 @@
+{
+  "draft_notice": {
+    "status": "PROVISIONAL",
+    "schema_status": "Not team-approved; temporary hand-authored JSON draft.",
+    "mission_id": "second-largest-number"
+  },
+  "title": "Second-Largest Distinct Number",
+  "problem_statement": "Read a list of integers and print its second-largest distinct value. Distinct means duplicate occurrences count as the same value: for example, the second-largest distinct value in [8, 8, 5] is 5. If fewer than two distinct values are present, print `NONE`. Use one pass with a constant number of tracking variables instead of sorting the list.",
+  "difficulty": "Medium",
+  "concept_tags": [
+    "lists",
+    "comparisons",
+    "duplicate-handling",
+    "single-pass"
+  ],
+  "constraints": [
+    "1 <= n <= 100000",
+    "-1000000000 <= each list value <= 1000000000"
+  ],
+  "input_format": "The first line contains an integer n, the number of values. The second line contains exactly n space-separated integers.",
+  "output_format": "Print the second-largest distinct integer value. If the list contains fewer than two distinct values, print exactly `NONE`.",
+  "starter_code": "def main():\n    n = int(input())\n    numbers = list(map(int, input().split()))\n\n    # TODO: Track the largest and second-largest distinct values while scanning.\n    # TODO: Do not treat another copy of the largest value as a distinct runner-up.\n\n    print(\"NONE\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "public_samples": [
+    {
+      "id": "sample-1",
+      "input": "5\n4 1 7 3 5\n",
+      "output": "5\n",
+      "explanation": "The largest distinct value is 7 and the next distinct value is 5."
+    },
+    {
+      "id": "sample-2",
+      "input": "4\n9 9 7 8\n",
+      "output": "8\n",
+      "explanation": "The duplicate 9s count as one distinct value; 8 is the next-largest distinct value."
+    },
+    {
+      "id": "sample-3",
+      "input": "3\n-5 -2 -9\n",
+      "output": "-5\n",
+      "explanation": "-2 is largest and -5 is the second-largest distinct value."
+    },
+    {
+      "id": "sample-4",
+      "input": "3\n6 6 6\n",
+      "output": "NONE\n",
+      "explanation": "There is only one distinct value, so no second-largest distinct value exists."
+    },
+    {
+      "id": "sample-5",
+      "input": "1\n-1000000000\n",
+      "output": "NONE\n",
+      "explanation": "A one-element list cannot contain a second distinct value."
+    }
+  ],
+  "hints": [
+    "The second-largest value must be different from the largest value; repeated copies do not create another rank.",
+    "As you scan, keep track of the best two distinct values seen so far. Think through what should happen when a new value is bigger than the current largest.",
+    "For each number, update the largest and second-largest trackers in order. Ignore a value equal to the largest, and only print the second tracker if it was set."
+  ],
+  "common_beginner_mistakes": [
+    "Sorting the whole list despite the intended one-pass comparison approach.",
+    "Treating the second copy of the largest number as the second-largest distinct value.",
+    "Initializing both trackers to 0, which fails when all values are negative.",
+    "Updating the largest without first moving the old largest into the second-largest position.",
+    "Using only `n > 1` to decide whether a second distinct value exists; duplicates may leave only one distinct value.",
+    "Printing a default numeric value when no second distinct value exists instead of printing `NONE`."
+  ],
+  "completion_criteria": [
+    "Reads n and exactly n integers in the specified two-line format.",
+    "Finds the second-largest distinct value in a single pass without sorting.",
+    "Handles duplicates, negative values, and any input order.",
+    "Prints exactly `NONE` when fewer than two distinct values exist.",
+    "Prints only the answer value or `NONE`, with no extra text.",
+    "Passes all public samples and separately maintained private tests."
+  ],
+  "private_tests": {
+    "status": "Placeholder only; actual private cases are not included.",
+    "specification": "In approved private storage, cover n = 1, all values equal, duplicated maximum with a distinct runner-up, all-negative lists, ties below the maximum, and values at both integer boundaries. Do not place private inputs or expected outputs in this public mission file."
+  },
+  "qa": {
+    "checklist": [
+      {
+        "check": "Draft is marked provisional and not team-approved.",
+        "status": "passed"
+      },
+      {
+        "check": "Input format, list length, distinct-value rule, and NONE behavior are explicit.",
+        "status": "passed"
+      },
+      {
+        "check": "Starter parses the two-line input format and leaves the one-pass ranking logic unfinished.",
+        "status": "passed"
+      },
+      {
+        "check": "Public samples cover ordinary values, duplicates, negatives, one distinct value, and a one-item list.",
+        "status": "passed"
+      },
+      {
+        "check": "All public sample outputs were independently verified.",
+        "status": "passed"
+      },
+      {
+        "check": "At least three progressive hints and five relevant beginner mistakes are included.",
+        "status": "passed"
+      },
+      {
+        "check": "No private test inputs or expected outputs are stored in this public draft.",
+        "status": "passed"
+      }
+    ],
+    "public_sample_results": [
+      {
+        "sample_id": "sample-1",
+        "expected_output": "5\n",
+        "actual_output": "5\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-2",
+        "expected_output": "8\n",
+        "actual_output": "8\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-3",
+        "expected_output": "-5\n",
+        "actual_output": "-5\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-4",
+        "expected_output": "NONE\n",
+        "actual_output": "NONE\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-5",
+        "expected_output": "NONE\n",
+        "actual_output": "NONE\n",
+        "status": "passed"
+      }
+    ]
+  }
+}

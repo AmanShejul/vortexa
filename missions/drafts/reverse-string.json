@@ -1,0 +1,126 @@
+{
+  "draft_notice": {
+    "status": "PROVISIONAL",
+    "schema_status": "Not team-approved; temporary hand-authored JSON draft.",
+    "mission_id": "reverse-string"
+  },
+  "title": "Reverse a String",
+  "problem_statement": "Read one line of text and print its characters in reverse order. Spaces and punctuation are characters and must be preserved. An empty line represents the empty string and should produce an empty output line.",
+  "difficulty": "Beginner",
+  "concept_tags": [
+    "strings",
+    "indexing",
+    "string-operations"
+  ],
+  "constraints": [
+    "The input contains between 0 and 100000 printable ASCII characters, inclusive.",
+    "The input may contain spaces and punctuation but no line-break characters."
+  ],
+  "input_format": "Exactly one line containing the string to reverse. The line may be empty; a blank line represents the empty string. Spaces on the line are part of the input.",
+  "output_format": "Print the input characters in reverse order on one line. Preserve all spaces and punctuation. For an empty input line, print an empty line.",
+  "starter_code": "def main():\n    text = input()\n\n    # TODO: Create the characters in reverse order without losing spaces.\n    reversed_text = text\n    print(reversed_text)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "public_samples": [
+    {
+      "id": "sample-1",
+      "input": "hello\n",
+      "output": "olleh\n",
+      "explanation": "The letters of `hello` appear in reverse order as `olleh`."
+    },
+    {
+      "id": "sample-2",
+      "input": "Python 3!\n",
+      "output": "!3 nohtyP\n",
+      "explanation": "The space, digit, and punctuation mark are reversed along with the letters."
+    },
+    {
+      "id": "sample-3",
+      "input": "\n",
+      "output": "\n",
+      "explanation": "The empty string has no characters, so reversing it still produces an empty line."
+    },
+    {
+      "id": "sample-4",
+      "input": "a b c\n",
+      "output": "c b a\n",
+      "explanation": "Spaces are retained as characters while the whole line is reversed."
+    }
+  ],
+  "hints": [
+    "The task changes the order of characters, not their values.",
+    "A string can be viewed as a sequence of characters with positions. Consider what happens to the first and last positions when reversing.",
+    "Python supports constructing a reversed string from an existing string using slicing or another string operation; make sure you apply it to the full input line."
+  ],
+  "common_beginner_mistakes": [
+    "Reversing the order of words instead of reversing every character.",
+    "Dropping spaces or punctuation while rebuilding the string.",
+    "Using `text.reverse()`, which is not a string method and would not return a reversed string.",
+    "Printing the original text instead of the reversed result.",
+    "Treating the empty line as missing input rather than as an empty string.",
+    "Adding separators between characters even though the output should contain the reversed original characters."
+  ],
+  "completion_criteria": [
+    "Reads exactly one input line and preserves spaces and punctuation.",
+    "Prints every input character in reverse order.",
+    "Prints an empty line for an empty input line.",
+    "Does not add spaces, labels, or other characters not present in the input.",
+    "Passes all public samples and separately maintained private tests."
+  ],
+  "private_tests": {
+    "status": "Placeholder only; actual private cases are not included.",
+    "specification": "In approved private storage, cover empty and one-character strings, repeated characters, spaces, punctuation, and strings near the maximum length. Do not place private inputs or expected outputs in this public mission file."
+  },
+  "qa": {
+    "checklist": [
+      {
+        "check": "Draft is marked provisional and not team-approved.",
+        "status": "passed"
+      },
+      {
+        "check": "Input and output definitions preserve spaces, punctuation, and the empty line.",
+        "status": "passed"
+      },
+      {
+        "check": "Starter code reads one line and leaves the transformation as a TODO.",
+        "status": "passed"
+      },
+      {
+        "check": "All public sample outputs were independently verified.",
+        "status": "passed"
+      },
+      {
+        "check": "At least three progressive hints and five relevant beginner mistakes are included.",
+        "status": "passed"
+      },
+      {
+        "check": "No private test inputs or expected outputs are stored in this public draft.",
+        "status": "passed"
+      }
+    ],
+    "public_sample_results": [
+      {
+        "sample_id": "sample-1",
+        "expected_output": "olleh\n",
+        "actual_output": "olleh\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-2",
+        "expected_output": "!3 nohtyP\n",
+        "actual_output": "!3 nohtyP\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-3",
+        "expected_output": "\n",
+        "actual_output": "\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-4",
+        "expected_output": "c b a\n",
+        "actual_output": "c b a\n",
+        "status": "passed"
+      }
+    ]
+  }
+}

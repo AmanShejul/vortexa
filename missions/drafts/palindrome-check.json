@@ -1,0 +1,138 @@
+{
+  "draft_notice": {
+    "status": "PROVISIONAL",
+    "schema_status": "Not team-approved; temporary hand-authored JSON draft.",
+    "mission_id": "palindrome-check"
+  },
+  "title": "Palindrome Check",
+  "problem_statement": "Read one line of text and decide whether it is a palindrome when letter case is ignored. Compare the entire line after converting letters to lowercase. Spaces and punctuation are significant characters: do not remove or ignore them. An empty line is a palindrome. Print `YES` when the normalized line reads the same forward and backward, otherwise print `NO`.",
+  "difficulty": "Beginner",
+  "concept_tags": [
+    "strings",
+    "comparisons",
+    "normalization"
+  ],
+  "constraints": [
+    "The input contains between 0 and 100000 printable ASCII characters, inclusive.",
+    "Only letter case is ignored. Spaces and punctuation remain significant."
+  ],
+  "input_format": "Exactly one line containing the string to check. The line may be empty; a blank line represents the empty string. Spaces and punctuation on the line are part of the string.",
+  "output_format": "Print exactly `YES` if the input is a palindrome after converting letters to lowercase without removing any characters; otherwise print exactly `NO`.",
+  "starter_code": "def main():\n    text = input()\n\n    # TODO: Normalize letter case without removing spaces or punctuation.\n    normalized = text\n\n    # TODO: Compare the normalized text with its reverse and print YES or NO.\n    pass\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "public_samples": [
+    {
+      "id": "sample-1",
+      "input": "RaceCar\n",
+      "output": "YES\n",
+      "explanation": "After lowercasing, `racecar` reads the same in both directions."
+    },
+    {
+      "id": "sample-2",
+      "input": "Hello\n",
+      "output": "NO\n",
+      "explanation": "Lowercasing gives `hello`, which is not the same when reversed."
+    },
+    {
+      "id": "sample-3",
+      "input": "a a\n",
+      "output": "YES\n",
+      "explanation": "The space is significant, and `a a` is still the same in reverse."
+    },
+    {
+      "id": "sample-4",
+      "input": "\n",
+      "output": "YES\n",
+      "explanation": "The empty string equals its reverse."
+    },
+    {
+      "id": "sample-5",
+      "input": "A,bA\n",
+      "output": "NO\n",
+      "explanation": "Punctuation is not removed; `a,ba` differs from its reverse."
+    }
+  ],
+  "hints": [
+    "A palindrome must match when read from either end.",
+    "First make letter case consistent, but remember that this task does not ignore spaces or punctuation.",
+    "Compare the normalized string with the same string in reverse order; print the required uppercase result based on whether they match."
+  ],
+  "common_beginner_mistakes": [
+    "Comparing the original string without normalizing case, so `RaceCar` is incorrectly rejected.",
+    "Removing spaces even though the rules say spaces are significant.",
+    "Removing punctuation or comparing only alphabetic characters.",
+    "Checking only the first and last character instead of the whole string.",
+    "Printing `True` or `False` instead of the required `YES` or `NO`.",
+    "Treating the empty string as not a palindrome."
+  ],
+  "completion_criteria": [
+    "Reads exactly one line, including an empty line.",
+    "Ignores letter case by normalizing case only.",
+    "Keeps spaces and punctuation in the comparison.",
+    "Prints exactly `YES` or `NO` according to whether the normalized string equals its reverse.",
+    "Passes all public samples and separately maintained private tests."
+  ],
+  "private_tests": {
+    "status": "Placeholder only; actual private cases are not included.",
+    "specification": "In approved private storage, cover empty and one-character strings, mixed-case palindromes, non-palindromes, spaces, punctuation, and strings near the maximum length. Include cases that would change classification if punctuation or spaces were incorrectly discarded. Do not place private inputs or expected outputs in this public mission file."
+  },
+  "qa": {
+    "checklist": [
+      {
+        "check": "Draft is marked provisional and not team-approved.",
+        "status": "passed"
+      },
+      {
+        "check": "Case-insensitivity is explicit and spaces and punctuation are explicitly significant.",
+        "status": "passed"
+      },
+      {
+        "check": "Input parsing, output labels, and starter TODOs match the statement.",
+        "status": "passed"
+      },
+      {
+        "check": "All public sample outputs were independently verified.",
+        "status": "passed"
+      },
+      {
+        "check": "At least three progressive hints and five relevant beginner mistakes are included.",
+        "status": "passed"
+      },
+      {
+        "check": "No private test inputs or expected outputs are stored in this public draft.",
+        "status": "passed"
+      }
+    ],
+    "public_sample_results": [
+      {
+        "sample_id": "sample-1",
+        "expected_output": "YES\n",
+        "actual_output": "YES\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-2",
+        "expected_output": "NO\n",
+        "actual_output": "NO\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-3",
+        "expected_output": "YES\n",
+        "actual_output": "YES\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-4",
+        "expected_output": "YES\n",
+        "actual_output": "YES\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-5",
+        "expected_output": "NO\n",
+        "actual_output": "NO\n",
+        "status": "passed"
+      }
+    ]
+  }
+}
