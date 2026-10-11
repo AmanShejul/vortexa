@@ -92,22 +92,41 @@ export function generateProgressiveHints(category, executionResult) {
   }
 }
 
-// Safe guidance path used when live execution is unavailable. It is
-// intentionally not tied to learner code or fabricated execution evidence.
+export function generateMissionRelevantHints(category, executionResult, mission) {
+  const guidance = generateProgressiveHints(category, executionResult);
+  const focusAreas = Array.isArray(mission?.hintMetadata?.focusAreas)
+    ? mission.hintMetadata.focusAreas.filter((item) => typeof item === "string" && item.length > 0)
+    : [];
+  const focus = focusAreas[0] || mission?.topic || "the mission contract";
+  const title = typeof mission?.title === "string" ? mission.title : "this mission";
+
+  return {
+    ...guidance,
+    explanation: `${guidance.explanation} Mission focus: ${focus}.`,
+    level1: `${guidance.level1} For ${title}, focus on ${focus}.`,
+    level2: `${guidance.level2} Keep the ${focus} requirement in view as you trace the example.`,
+    level3: `${guidance.level3} Recheck the mission's public edge cases against the ${focus} requirement.`,
+  };
+}
+
+// Safe guidance path for mission-level advice. It is intentionally not tied
+// to learner code or fabricated execution evidence.
 export function generateGeneralMissionHints(mission, hintLevel = 1) {
   const safeLevel = Math.min(3, Math.max(1, Number(hintLevel) || 1));
-  const functionName = typeof mission?.execution?.functionName === "string"
+  const functionName = mission?.execution?.kind === "function"
+    && typeof mission.execution.functionName === "string"
     ? mission.execution.functionName
-    : "the required function";
+    : "the program's input/output contract";
   const title = typeof mission?.title === "string" ? mission.title : "this mission";
+  const focus = typeof mission?.topic === "string" ? mission.topic : "the mission rule";
   const hints = [
-    `Start by restating what ${title} must return for one ordinary input. Keep the work inside ${functionName} and focus on the mission's stated return value.`,
-    `Trace the inputs from ${functionName} to its return statement. Check the condition, loop boundary, or accumulator that directly represents the mission rule.`,
-    `Compare your planned steps with each visible example and then check the smallest, largest, empty, or boundary case described in the constraints. Correct the first step where your reasoning diverges.`,
+    `Start by restating the input and output rule for ${title}. Keep the work inside ${functionName} and focus on ${focus}.`,
+    `Trace the input through the ${focus} rule. Check the condition, loop boundary, data structure, or output formatting that carries the result.`,
+    `Compare your planned steps with each visible example, then check the smallest, empty, or boundary case described in the constraints. Correct the first step where your reasoning diverges.`,
   ];
 
   return {
-    explanation: `General mission guidance for ${title}. No learner code was executed, so this is not a diagnosis of your submission.`,
+    explanation: `General mission guidance for ${title}. It is not a diagnosis based on a server execution result.`,
     level1: hints[0],
     level2: hints[1],
     level3: hints[2],

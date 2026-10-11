@@ -4,7 +4,7 @@ import { SectionLabel } from "@/components/SectionLabel";
 import { SplineScene } from "@/components/SplineScene";
 import { missions } from "@/lib/missions";
 
-const features = [["01", "Guided missions", "Short challenges with clear goals, starter code, and examples."], ["02", "Progressive hints", "A nudge before an approach. Detailed guidance only when you ask."], ["03", "Mistake DNA", "A typed readiness layer for recurring patterns and edge cases."], ["04", "Adaptive path", "A flexible foundation for recommendations based on real attempts."]] as const;
+const features = [["01", "Guided missions", "Focused challenges with clear goals, starter code, and tested examples."], ["02", "Local Python", "Run compatible Python in a browser worker against public examples."], ["03", "Progressive hints", "A conceptual nudge before stronger deterministic guidance."], ["04", "Practice patterns", "Review recurring mistakes stored only in this browser."]] as const;
 const steps = [["01", "Choose a mission", "Start with a focused challenge shaped around the concept you want to understand."], ["02", "Write code and test your thinking", "Work in small loops with feedback that keeps you moving forward."], ["03", "Understand mistakes and improve", "Turn each wrong answer into a pattern you will recognize next time."]] as const;
 
 export default function Home() {

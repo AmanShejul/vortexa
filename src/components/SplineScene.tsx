@@ -10,9 +10,10 @@ const SplineCanvas = dynamic(() => import("@splinetool/react-spline/next"), {
 
 interface FallbackUniverseProps {
   interactionRef: RefObject<HTMLDivElement | null>;
+  label?: string;
 }
 
-function FallbackUniverse({ interactionRef }: FallbackUniverseProps) {
+function FallbackUniverse({ interactionRef, label = "CodeQuest / local scene" }: FallbackUniverseProps) {
   return <div className="relative grid h-full w-full place-items-center overflow-hidden rounded-[2rem] border border-[#292929] bg-[#0a0a0a]">
     <div ref={interactionRef} className="cq-interaction relative aspect-square w-[88%] max-w-[34rem]">
       <div className="cq-sphere-float absolute inset-0">
@@ -22,18 +23,20 @@ function FallbackUniverse({ interactionRef }: FallbackUniverseProps) {
         <span className="absolute left-[8%] top-[19%] size-1.5 rounded-full bg-[#a3a3a3]" /><span className="absolute right-[8%] top-[31%] size-1 rounded-full bg-white" /><span className="absolute bottom-[17%] left-[18%] size-1 rounded-full bg-[#737373]" />
       </div>
     </div>
-    <span className="absolute bottom-5 left-5 rounded-lg border border-[#292929] bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#737373]">scene fallback / ready</span>
+    <span className="absolute bottom-5 left-5 rounded-lg border border-[#292929] bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-400">{label}</span>
   </div>;
 }
 
 export function SplineScene() {
-  const [loaded, setLoaded] = useState(false);
+  const sceneUrl = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL;
+  const [sceneStatus, setSceneStatus] = useState<"fallback" | "loading" | "loaded" | "failed">(
+    sceneUrl ? "loading" : "fallback",
+  );
   const interactionRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<number | null>(null);
   const targetRef = useRef({ x: 0, y: 0 });
   const currentRef = useRef({ x: 0, y: 0 });
   const reducedMotionRef = useRef(false);
-  const sceneUrl = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -72,6 +75,40 @@ export function SplineScene() {
     return () => { element?.removeEventListener("pointermove", handlePointerMove); element?.removeEventListener("pointerleave", handlePointerLeave); mediaQuery.removeEventListener("change", handleMotionPreference); if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current); };
   }, []);
 
-  if (!sceneUrl) return <FallbackUniverse interactionRef={interactionRef} />;
-  return <div className="relative h-full w-full overflow-visible rounded-[2rem] border border-[#292929] bg-[#0a0a0a]"><div className="absolute inset-0 z-0"><FallbackUniverse interactionRef={interactionRef} /></div><SplineCanvas scene={sceneUrl} onLoad={() => setLoaded(true)} className={`relative z-10 h-full w-full transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"}`} />{!loaded && <div className="absolute inset-x-0 bottom-5 z-20 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-[#737373]">loading scene…</div>}</div>;
+  useEffect(() => {
+    if (!sceneUrl || sceneStatus !== "loading") return;
+    const timeout = window.setTimeout(() => {
+      setSceneStatus((status) => status === "loaded" ? status : "failed");
+    }, 15_000);
+    return () => window.clearTimeout(timeout);
+  }, [sceneStatus, sceneUrl]);
+
+  if (!sceneUrl) return <FallbackUniverse interactionRef={interactionRef} label="Procedural scene / ready" />;
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-[2rem] border border-[#292929] bg-[#0a0a0a]">
+      <div className="absolute inset-0 z-0">
+        <FallbackUniverse
+          interactionRef={interactionRef}
+          label={sceneStatus === "failed" ? "3D unavailable / local fallback" : "Procedural scene / ready"}
+        />
+      </div>
+      {sceneStatus !== "failed" && (
+        <SplineCanvas
+          scene={sceneUrl}
+          onLoad={() => setSceneStatus("loaded")}
+          className={`relative z-10 h-full w-full transition-opacity duration-700 ${sceneStatus === "loaded" ? "opacity-100" : "opacity-0"}`}
+        />
+      )}
+      {sceneStatus === "loading" && (
+        <div className="absolute inset-x-0 bottom-5 z-20 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-300" role="status">
+          Loading interactive scene…
+        </div>
+      )}
+      {sceneStatus === "failed" && (
+        <div className="absolute inset-x-5 bottom-16 z-20 text-center text-xs leading-5 text-neutral-300" role="status">
+          The interactive scene could not load. A local illustration is shown instead.
+        </div>
+      )}
+    </div>
+  );
 }

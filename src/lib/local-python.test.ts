@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { LocalPythonWorkerClient } from "@/lib/local-python";
+import type { MissionExecutionContract } from "@/types";
 
+const functionExecution: MissionExecutionContract = {
+  kind: "function",
+  functionName: "solution",
+  parameters: [],
+  returnType: "integer",
+};
 class FakeWorker {
   onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
   onerror: ((event: ErrorEvent) => void) | null = null;
@@ -45,7 +52,7 @@ describe("LocalPythonWorkerClient", () => {
     const client = new LocalPythonWorkerClient(workerFactory(worker));
     const phases: string[] = [];
 
-    const result = await client.execute("print('hi')", "solution", [], (phase) => phases.push(phase));
+    const result = await client.execute("print('hi')", functionExecution, [], (phase) => phases.push(phase));
 
     expect(phases).toEqual(["loading", "running"]);
     expect(result.allPassed).toBe(true);
@@ -72,10 +79,10 @@ describe("LocalPythonWorkerClient", () => {
       .mockReturnValueOnce(retryWorker as unknown as Worker);
     const client = new LocalPythonWorkerClient(createWorker, 5, 20);
 
-    await expect(client.execute("while True: pass", "solution", [])).rejects.toThrow("timed out");
+    await expect(client.execute("while True: pass", functionExecution, [])).rejects.toThrow("timed out");
     expect(blockedWorker.terminated).toBe(true);
 
-    const retried = await client.execute("pass", "solution", []);
+    const retried = await client.execute("pass", functionExecution, []);
     expect(retried.failedTests).toBe(0);
     expect(createWorker).toHaveBeenCalledTimes(2);
   });
@@ -87,7 +94,7 @@ describe("LocalPythonWorkerClient", () => {
     };
     const client = new LocalPythonWorkerClient(workerFactory(worker));
 
-    await expect(client.execute("pass", "solution", [])).rejects.toThrow("worker failed unexpectedly");
+    await expect(client.execute("pass", functionExecution, [])).rejects.toThrow("worker failed unexpectedly");
     expect(worker.terminated).toBe(true);
   });
 
@@ -103,7 +110,7 @@ describe("LocalPythonWorkerClient", () => {
     };
     const client = new LocalPythonWorkerClient(workerFactory(worker));
 
-    await expect(client.execute("pass", "solution", [])).rejects.toThrow(
+    await expect(client.execute("pass", functionExecution, [])).rejects.toThrow(
       "Python runtime could not load: NetworkError: failed to fetch runtime",
     );
   });

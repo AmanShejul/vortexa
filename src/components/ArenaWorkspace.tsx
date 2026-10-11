@@ -8,7 +8,7 @@ import { TestResults } from "@/components/TestResults";
 import { executeMission } from "@/lib/execution-client";
 import { recordLocalAttempt } from "@/lib/learner-patterns";
 import { getBrowserAccessToken } from "@/lib/supabase";
-import { classifyMistake, generateProgressiveHints } from "../../yash/aiMentor.js";
+import { classifyMistake, generateMissionRelevantHints } from "../../yash/aiMentor.js";
 import type { LocalPythonPhase } from "@/lib/local-python";
 import type { ExecutionMode, ExecutionResult, ExecutionSource, HintSet, MentorResponse, Mission } from "@/types";
 
@@ -48,9 +48,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
     resultIsCurrent
       && result
       && result.status !== "execution_error"
-      && (result.isSimulated
-        || result.executionSource === "local"
-        || (mentorEvidenceToken && !result.isMock)),
+      && (result.executionSource === "local" || mentorEvidenceToken),
   );
 
   function switchExecutionSource(nextSource: ExecutionSource) {
@@ -83,7 +81,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
       setResult(executionResult);
       setResultSource(submittedCode);
       setMentorEvidenceToken(executionResult.mentorEvidenceToken ?? null);
-      if (executionResult.executionSource === "local" && !executionResult.isSimulated) {
+      if (executionResult.executionSource === "local") {
         recordLocalAttempt({
           missionId: mission.id,
           category: String(classifyMistake(submittedCode, executionResult)),
@@ -117,10 +115,10 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
     // Local execution has no server-side evidence token, so diagnose the
     // learner's code directly in the browser with the deterministic mentor
     // engine. This mirrors the server-side /api/hint evidence path.
-    if (result.executionSource === "local" && !result.isSimulated) {
+    if (result.executionSource === "local") {
       try {
         const category = String(classifyMistake(code, result));
-        const guidance = generateProgressiveHints(category, { status: result.status });
+        const guidance = generateMissionRelevantHints(category, { status: result.status }, mission);
         const hintKey = `level${level}` as "level1" | "level2" | "level3";
         const keys: Array<keyof HintSet> = ["nudge", "approach", "detailed"];
         setMentorHints((current) => ({ ...current, [keys[level - 1]]: String(guidance[hintKey]) }));
@@ -147,9 +145,8 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
           missionId: mission.id,
           mode: result.mode,
           hintLevel: level,
-          ...(result.isSimulated || result.executionSource === "local"
-            ? { general: true }
-            : { sourceCode: code, evidenceToken: mentorEvidenceToken }),
+          sourceCode: code,
+          evidenceToken: mentorEvidenceToken,
         }),
       });
       const payload = await response.json().catch(() => null) as (MentorResponse & { error?: string }) | null;
@@ -159,7 +156,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
       if (!payload || typeof payload.hint !== "string" || typeof payload.category !== "string") {
         throw new Error("The mentor returned an invalid response. Please try again.");
       }
-      const trustedServerEvidence = result.executionSource === "live" && !result.isSimulated;
+      const trustedServerEvidence = result.executionSource === "live";
       if (trustedServerEvidence && level < 3 && typeof payload.nextEvidenceToken !== "string") {
         throw new Error("The mentor did not return the next hint reference. Run your code again.");
       }
@@ -178,16 +175,12 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
   }
 
   const statusMessage = running
-    ? executionSource === "demo"
-      ? "Showing labelled demo feedback…"
-      : executionSource === "local"
+    ? executionSource === "local"
         ? localPythonPhase === "loading" ? "Loading local Python runtime…" : "Running Python locally…"
         : "Judge0 is running your Python solution…"
     : requestError
       ? "Execution could not be completed."
-      : result?.isSimulated
-        ? "Demo sample shown — your Python code was not executed."
-        : result?.status === "passed" && result.allPassed
+      : result?.status === "passed" && result.allPassed
           ? result.executionSource === "local"
             ? "Local public examples passed. Hidden tests were not run."
             : result.mode === "submit"
@@ -206,7 +199,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
           </Link>
           <div className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500 sm:flex">
             <span className="size-1.5 rounded-full bg-neutral-300" aria-hidden="true" />
-            Python · {executionSource === "local" ? "Local" : executionSource === "demo" ? "Demo" : "Judge0"}
+            Python · {executionSource === "local" ? "Local Python" : "Live Judge0"}
           </div>
           <span className="max-w-[45%] truncate text-right text-xs text-neutral-500 sm:max-w-none">
             {mission.category} <span className="text-neutral-700">/</span> {mission.difficulty}
@@ -215,28 +208,21 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
       </header>
 
       <main className="mx-auto w-[min(1480px,calc(100%-24px))] py-5 sm:w-[min(1480px,calc(100%-40px))] sm:py-8">
-        <div className={`mb-4 flex flex-col gap-3 rounded-xl border px-3 py-3 sm:flex-row sm:items-center sm:justify-between ${executionSource === "demo" ? "border-amber-800/70 bg-amber-950/20" : "border-[#292929] bg-[#0d0d0d]"}`} role="status">
-          <div>
-            <p className={`font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${executionSource === "demo" ? "text-amber-200" : "text-neutral-300"}`}>
-              {executionSource === "demo"
-                ? "DEMO MODE — simulated feedback"
-                : executionSource === "local"
-                  ? "LOCAL PYTHON — browser execution"
-                  : "LIVE MODE — Judge0 execution"}
+        <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[#292929] bg-[#0d0d0d] px-3 py-3 sm:flex-row sm:items-center sm:justify-between" role="status">
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-300">
+              {executionSource === "local" ? "LOCAL PYTHON — browser execution" : "LIVE JUDGE0 — server execution"}
             </p>
-            <p className="mt-1 text-xs leading-5 text-neutral-400">
-              {executionSource === "demo"
-                ? "Sample feedback is not executed against your code and cannot complete a mission."
-                : executionSource === "local"
-                  ? "Your code runs in a browser worker. Only public examples are checked; hidden tests stay on the server."
-                  : "Your code will be sent to the configured Judge0 provider."}
+            <p className="mt-1 break-words text-xs leading-5 text-neutral-400">
+              {executionSource === "local"
+                ? "Your code runs in a browser worker. Only public examples are checked; hidden tests stay on the server."
+                : "Your code will be sent to the configured Judge0 provider."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {([
               ["local", "Local Python"],
               ["live", "Live Judge0"],
-              ["demo", "Demo Mode"],
             ] as const).map(([source, label]) => (
               <button
                 key={source}
@@ -298,8 +284,8 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
               running ? "animate-pulse bg-amber-300" : result?.status === "passed" && result.allPassed ? "bg-emerald-300" : requestError ? "bg-rose-300" : "bg-neutral-500"
             }`}
           />
-          <p className={`text-xs leading-5 ${requestError ? "text-rose-200" : result?.status === "passed" && result.allPassed ? "text-emerald-200" : "text-neutral-400"}`}>
-            {requestError ?? statusMessage}
+          <p className={`min-w-0 break-words text-xs leading-5 ${requestError ? "text-rose-200" : result?.status === "passed" && result.allPassed ? "text-emerald-200" : "text-neutral-400"}`}>
+            {requestError ? "Execution could not be completed. See the results panel for details." : statusMessage}
           </p>
         </div>
 
@@ -350,9 +336,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
             <p className="mt-3 text-[11px] leading-5 text-neutral-500">
               {executionSource === "local"
                 ? "Run and Submit both execute locally against public examples only; hidden tests are never sent to this browser."
-                : executionSource === "demo"
-                  ? "Demo mode does not execute code or verify tests."
-                  : "Run checks the public examples. Submit checks the full mission suite."}
+                : "Run checks the public examples. Submit checks the full mission suite."}
               {running && " Editing is paused until this run finishes."}
             </p>
           </section>

@@ -1,4 +1,5 @@
 import type { LocalPythonTestResult, PublicPythonTestCase } from "@/lib/pyodide-runner";
+import type { MissionExecutionContract } from "@/types";
 
 export const LOCAL_PYTHON_EXECUTION_TIMEOUT_MS = Math.min(
   30_000,
@@ -52,7 +53,7 @@ export class LocalPythonWorkerClient {
 
   execute(
     sourceCode: string,
-    functionName: string,
+    execution: MissionExecutionContract,
     testCases: PublicPythonTestCase[],
     onStatus?: (phase: LocalPythonPhase) => void,
   ): Promise<LocalPythonTestResult> {
@@ -63,7 +64,7 @@ export class LocalPythonWorkerClient {
       worker = this.worker ?? this.createWorker();
       this.worker = worker;
     } catch {
-      return Promise.reject(new Error("This browser could not start a Python worker. Retry or switch to Demo Mode."));
+      return Promise.reject(new Error("This browser could not start a Python worker. Retry or use Live Judge0 if it is configured."));
     }
 
     const requestId = this.nextRequestId++;
@@ -75,8 +76,8 @@ export class LocalPythonWorkerClient {
           requestId,
           new Error(
             this.pending?.ready
-              ? `Local Python execution timed out after ${this.executionTimeoutMs / 1000} seconds. The worker was restarted; retry or switch to Demo Mode.`
-              : "The Python runtime took too long to load. Check your network connection, retry, or switch to Demo Mode.",
+              ? `Local Python execution timed out after ${this.executionTimeoutMs / 1000} seconds. The worker was restarted; retry or use Live Judge0 if it is configured.`
+              : "The Python runtime took too long to load. Check your network connection, retry, or use Live Judge0 if it is configured.",
           ),
         );
       }, this.runtimeLoadTimeoutMs);
@@ -84,16 +85,16 @@ export class LocalPythonWorkerClient {
       this.pending = { requestId, onStatus, resolve, reject, timer, ready: false };
       worker.onmessage = (event: MessageEvent<unknown>) => this.handleMessage(requestId, event.data);
       worker.onerror = () => {
-        this.fail(requestId, new Error("The local Python worker failed unexpectedly. Retry or switch to Demo Mode."));
+        this.fail(requestId, new Error("The local Python worker failed unexpectedly. Retry or use Live Judge0 if it is configured."));
       };
       worker.onmessageerror = () => {
-        this.fail(requestId, new Error("The local Python worker returned an unreadable response. Retry or switch to Demo Mode."));
+        this.fail(requestId, new Error("The local Python worker returned an unreadable response. Retry or use Live Judge0 if it is configured."));
       };
 
       try {
-        worker.postMessage({ requestId, sourceCode, functionName, testCases });
+        worker.postMessage({ requestId, sourceCode, execution, testCases });
       } catch {
-        this.fail(requestId, new Error("The local Python worker could not accept this run. Retry or switch to Demo Mode."));
+        this.fail(requestId, new Error("The local Python worker could not accept this run. Retry or use Live Judge0 if it is configured."));
       }
     });
   }
@@ -110,7 +111,7 @@ export class LocalPythonWorkerClient {
         this.fail(
           requestId,
           new Error(
-            `Local Python execution timed out after ${this.executionTimeoutMs / 1000} seconds. The worker was restarted; retry or switch to Demo Mode.`,
+            `Local Python execution timed out after ${this.executionTimeoutMs / 1000} seconds. The worker was restarted; retry or use Live Judge0 if it is configured.`,
           ),
         );
       }, this.executionTimeoutMs);
@@ -120,7 +121,7 @@ export class LocalPythonWorkerClient {
     if (message.type === "error") {
       const detail = typeof message.message === "string" ? message.message.slice(0, 1_000) : "Unknown runtime failure.";
       const prefix = pending.ready ? "Python execution failed" : "The Python runtime could not load";
-      this.fail(requestId, new Error(`${prefix}: ${detail}. Check your connection, retry, or switch to Demo Mode.`));
+      this.fail(requestId, new Error(`${prefix}: ${detail}. Check your connection, retry, or use Live Judge0 if it is configured.`));
       return;
     }
 
@@ -146,9 +147,9 @@ const localPythonWorker = new LocalPythonWorkerClient();
 
 export function executeInLocalPython(
   sourceCode: string,
-  functionName: string,
+  execution: MissionExecutionContract,
   testCases: PublicPythonTestCase[],
   onStatus?: (phase: LocalPythonPhase) => void,
 ) {
-  return localPythonWorker.execute(sourceCode, functionName, testCases, onStatus);
+  return localPythonWorker.execute(sourceCode, execution, testCases, onStatus);
 }

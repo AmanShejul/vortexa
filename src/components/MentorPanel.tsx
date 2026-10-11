@@ -44,8 +44,7 @@ export function MentorPanel({
   const hasPassed = executionSource === "live" && executionStatus === "passed" && executionMode === "submit";
   const publicExamplesPassed = executionStatus === "passed"
     && (executionSource === "local" || executionMode === "run");
-  const isSimulated = executionStatus === "simulated";
-  const isGeneralGuidance = isSimulated || executionSource === "local";
+  const isGeneralGuidance = executionSource === "local";
 
   return (
     <div className="space-y-3">
@@ -71,12 +70,10 @@ export function MentorPanel({
       {isGeneralGuidance && (
         <div className="rounded-xl border border-amber-800/70 bg-amber-950/20 px-4 py-3" role="status">
           <p className="text-sm font-semibold text-amber-200">
-            {isSimulated ? "General guidance only" : "Hints are not server-verified"}
+            Hints are not server-verified
           </p>
           <p className="mt-1 text-xs leading-5 text-amber-100/70">
-            {isSimulated
-              ? "Demo feedback did not execute your code, so these hints are not a diagnosis of your submission."
-              : "These deterministic hints are general guidance, not a server-verified diagnosis of local execution."}
+            These deterministic hints are general guidance, not a server-verified diagnosis of local execution.
           </p>
         </div>
       )}
@@ -87,7 +84,7 @@ export function MentorPanel({
             {executionStatus === "execution_error"
               ? "Mentor guidance is unavailable for this execution."
               : isGeneralGuidance
-                ? "Use general mission guidance in Demo mode."
+                ? "Use general mission guidance for local execution."
                 : executionStatus
                 ? "Trusted mentor evidence is unavailable for this run. Run it again or check the server configuration."
               : "Run your code to unlock mentor guidance."}

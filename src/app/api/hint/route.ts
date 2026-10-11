@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateGeneralMissionHints, generateProgressiveHints } from "../../../../yash/aiMentor.js";
+import { generateGeneralMissionHints, generateMissionRelevantHints } from "../../../../yash/aiMentor.js";
 import { getMission } from "@/lib/missions";
 import { createMentorEvidenceToken, isMentorEvidenceSigningAvailable, verifyMentorEvidenceToken } from "@/lib/mentor-evidence";
 import { getAuthenticatedUser, isSupabaseConfigured } from "@/lib/supabase";
@@ -88,7 +88,6 @@ export async function POST(request: Request) {
       hint: guidance[hintKey],
       hintLevel,
       isFallback: true,
-      isSimulated: true,
       guidanceSource: "general",
     });
   }
@@ -123,7 +122,7 @@ export async function POST(request: Request) {
     return errorResponse("This execution did not provide enough reliable evidence for a learner hint. Try running your code again.", 422);
   }
 
-  const guidance = generateProgressiveHints(evidence.category, { status: evidence.status });
+  const guidance = generateMissionRelevantHints(evidence.category, { status: evidence.status }, getMission(missionId));
   const hintKey = `level${hintLevel}` as "level1" | "level2" | "level3";
   return NextResponse.json({
     category: evidence.category,

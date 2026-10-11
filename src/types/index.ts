@@ -5,7 +5,16 @@ export type MissionCategory =
   | "Conditionals"
   | "Loops"
   | "Arrays"
-  | "Strings";
+  | "Strings"
+  | "Searching & Sorting"
+  | "Recursion"
+  | "Hash Maps"
+  | "Stacks & Queues"
+  | "Linked Lists"
+  | "Trees"
+  | "Graphs"
+  | "Dynamic Programming"
+  | "Input / Output";
 
 export type MissionStatus = "not_started" | "in_progress" | "completed";
 
@@ -15,18 +24,23 @@ export interface HintSet {
   detailed: string;
 }
 
-export type FunctionParameterType = "integer" | "string" | "integer[]";
+export type FunctionParameterType = "integer" | "string" | "integer[]" | "integer[][]" | "json";
 
 export interface FunctionParameter {
   name: string;
   type: FunctionParameterType;
 }
 
-export interface FunctionExecutionContract {
-  functionName: string;
-  parameters: FunctionParameter[];
-  returnType: "integer" | "integer | null" | "string" | "boolean";
-}
+export type MissionExecutionContract =
+  | {
+      kind: "function";
+      functionName: string;
+      parameters: FunctionParameter[];
+      returnType: "integer" | "integer | null" | "integer[]" | "object" | "string" | "boolean";
+    }
+  | {
+      kind: "stdin_stdout";
+    };
 
 export interface ExampleCase {
   input: string;
@@ -35,18 +49,24 @@ export interface ExampleCase {
 
 export interface Mission {
   id: string;
+  slug: string;
   title: string;
   shortDescription: string;
   description: string;
   difficulty: Difficulty;
   category: MissionCategory;
+  topic: string;
   concepts: string[];
+  hintMetadata: {
+    focusAreas: string[];
+    commonPitfalls: string[];
+  };
   durationMinutes?: number;
   status: MissionStatus;
   starterCode: string;
   examples: ExampleCase[];
   constraints: string[];
-  execution: FunctionExecutionContract;
+  execution: MissionExecutionContract;
 }
 
 export type ExecutionStatus =
@@ -57,12 +77,11 @@ export type ExecutionStatus =
   | "compilation_error"
   | "runtime_error"
   | "time_limit_exceeded"
-  | "execution_error"
-  | "simulated";
+  | "execution_error";
 
-export type ExecutionSource = "local" | "live" | "demo";
+export type ExecutionSource = "local" | "live";
 
-export type ExecutionScope = "public_tests_only" | "full_suite" | "simulation";
+export type ExecutionScope = "public_tests_only" | "full_suite";
 
 export interface TestCaseResult {
   id: string;
@@ -74,7 +93,6 @@ export interface TestCaseResult {
     | "runtime_error"
     | "time_limit_exceeded"
     | "execution_error"
-    | "simulated"
     | "pending";
   durationMs?: number;
   expectedOutput?: string;
@@ -87,11 +105,8 @@ export interface TestCaseResult {
 export interface ExecutionResult {
   status: ExecutionStatus;
   summary: string;
-  isMock: boolean;
   executionSource: ExecutionSource;
   executionScope: ExecutionScope;
-  isSimulated: boolean;
-  simulationNotice?: string;
   completedAt: string;
   tests: TestCaseResult[];
   totalTests: number;
@@ -179,7 +194,6 @@ export interface MentorResponse {
   hint: string;
   hintLevel: 1 | 2 | 3;
   isFallback: boolean;
-  isSimulated?: boolean;
   guidanceSource?: "execution" | "general";
   nextEvidenceToken?: string;
   recommendedNextMissionId?: string;

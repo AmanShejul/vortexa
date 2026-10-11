@@ -12,7 +12,7 @@ describe("execution client errors", () => {
         code: "judge0_configuration_missing",
         message: "Code execution service is not configured.",
       },
-    })).toMatch(/switch to Demo mode.*JUDGE0_API_URL/i);
+    })).toMatch(/Local Python.*JUDGE0_API_URL/i);
   });
 
   it("does not expose provider response details for generic upstream failures", () => {
@@ -24,36 +24,12 @@ describe("execution client errors", () => {
     })).toContain("Live Python execution is unavailable");
   });
 
-  it("routes explicit demo mode to the server evaluator", async () => {
-    vi.stubGlobal("window", globalThis);
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      status: "simulated",
-      executionSource: "demo",
-      executionScope: "simulation",
-      isSimulated: true,
-    }), { status: 200, headers: { "Content-Type": "application/json" } }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const result = await executeMission(
-      "sum-of-two-numbers",
-      "def sum_two_numbers(a, b): return a + b",
-      "run",
-      "demo",
-    );
-
-    expect(result.executionSource).toBe("demo");
-    expect(result.isSimulated).toBe(true);
-    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(String(request.body))).toMatchObject({ mode: "run", executionSource: "demo" });
-  });
-
   it("routes Live Judge0 only when explicitly selected", async () => {
     vi.stubGlobal("window", globalThis);
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: "wrong_answer",
       executionSource: "live",
       executionScope: "full_suite",
-      isSimulated: false,
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -74,7 +50,12 @@ describe("execution client errors", () => {
       { id: "public-1", label: "Example 1", args: [2, 3], expected: 5 },
     ];
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      functionName: "sum_two_numbers",
+      execution: {
+        kind: "function",
+        functionName: "sum_two_numbers",
+        parameters: [{ name: "a", type: "integer" }, { name: "b", type: "integer" }],
+        returnType: "integer",
+      },
       tests: cases,
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
@@ -120,6 +101,9 @@ describe("execution client errors", () => {
       expect.objectContaining({ cache: "no-store" }),
     );
     expect(fetchMock.mock.calls[0][0]).not.toBe("/api/run");
-    expect(workerRequest).toMatchObject({ functionName: "sum_two_numbers", testCases: cases });
+    expect(workerRequest).toMatchObject({
+      execution: { kind: "function", functionName: "sum_two_numbers" },
+      testCases: cases,
+    });
   });
 });

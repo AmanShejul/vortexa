@@ -1,4 +1,6 @@
-import { createClient, type User } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+
+let browserClientCache: { cacheKey: string; client: SupabaseClient } | null = null;
 
 export interface SupabaseConfig {
   url: string;
@@ -37,9 +39,15 @@ export function getBearerTokenFromRequest(request?: Request): string | null {
 
 export function createSupabaseBrowserClient() {
   const config = getSupabaseConfig();
-  if (!config) return null;
+  if (!config) {
+    browserClientCache = null;
+    return null;
+  }
 
-  return createClient(config.url, config.anonKey, {
+  const cacheKey = `${config.url}\u0000${config.anonKey}`;
+  if (browserClientCache?.cacheKey === cacheKey) return browserClientCache.client;
+
+  const client = createClient(config.url, config.anonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -47,6 +55,8 @@ export function createSupabaseBrowserClient() {
       flowType: "pkce",
     },
   });
+  browserClientCache = { cacheKey, client };
+  return client;
 }
 
 export async function getBrowserAccessToken(): Promise<string | null> {

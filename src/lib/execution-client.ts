@@ -1,5 +1,5 @@
 import { executeInLocalPython, type LocalPythonPhase } from "@/lib/local-python";
-import type { ExecutionMode, ExecutionResult, ExecutionSource } from "@/types";
+import type { ExecutionMode, ExecutionResult, ExecutionSource, MissionExecutionContract } from "@/types";
 import type { PublicPythonTestCase } from "@/lib/pyodide-runner";
 import { getBrowserAccessToken } from "@/lib/supabase";
 
@@ -17,7 +17,7 @@ export function getSafeExecutionError(status: number, payload: unknown): string 
   const code = typeof error === "object" && error !== null ? error.code : undefined;
 
   if (code === "judge0_configuration_missing") {
-    return "Live Python execution is unavailable because Judge0 is not configured. Switch to Demo mode for labelled sample feedback, or add JUDGE0_API_URL in .env.local and restart the app.";
+    return "Live Judge0 execution is unavailable because Judge0 is not configured. Local Python remains available in the browser, or add JUDGE0_API_URL in .env.local and restart the app.";
   }
   if (code === "judge0_configuration_invalid") {
     return "The Judge0 URL or Python language ID is invalid. Check JUDGE0_API_URL and JUDGE0_PYTHON_LANGUAGE_ID in .env.local.";
@@ -42,7 +42,7 @@ export function getSafeExecutionError(status: number, payload: unknown): string 
   }
 
   if (status === 502 || status === 503) {
-    return "Live Python execution is unavailable right now. Switch to Demo mode for labelled sample feedback, or try again after the execution service is restored.";
+    return "Live Judge0 execution is unavailable right now. Use Local Python or try again after the execution service is restored.";
   }
   if (status === 504) {
     return "The execution service could not finish this request in time. Please try again.";
@@ -54,11 +54,26 @@ export function getSafeExecutionError(status: number, payload: unknown): string 
 function isPublicTestCase(value: unknown): value is PublicPythonTestCase {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const testCase = value as Record<string, unknown>;
-  return typeof testCase.id === "string"
-    && testCase.id.startsWith("public-")
-    && typeof testCase.label === "string"
-    && Array.isArray(testCase.args)
-    && "expected" in testCase;
+  if (typeof testCase.id !== "string" || !testCase.id.startsWith("public-") || typeof testCase.label !== "string") {
+    return false;
+  }
+  if (Array.isArray(testCase.args)) return "expected" in testCase;
+  return typeof testCase.stdin === "string" && typeof testCase.expectedStdout === "string";
+}
+
+function isMissionExecutionContract(value: unknown): value is MissionExecutionContract {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const execution = value as Record<string, unknown>;
+  if (execution.kind === "stdin_stdout") return true;
+  if (execution.kind !== "function") return false;
+  return typeof execution.functionName === "string"
+    && Array.isArray(execution.parameters)
+    && execution.parameters.every((parameter) =>
+      Boolean(parameter)
+      && typeof parameter === "object"
+      && typeof (parameter as Record<string, unknown>).name === "string"
+      && typeof (parameter as Record<string, unknown>).type === "string")
+    && typeof execution.returnType === "string";
 }
 
 async function executeLocalMission(
@@ -83,26 +98,26 @@ async function executeLocalMission(
   if (!response.ok) {
     throw new Error(response.status === 404
       ? "This mission's public examples could not be found."
-      : "Public mission examples could not be loaded. Retry or switch to Demo Mode.");
+      : "Public mission examples could not be loaded. Retry or use Live Judge0 if it is configured.");
   }
 
   const suite: unknown = await response.json().catch(() => null);
   if (
     !suite
     || typeof suite !== "object"
-    || !("functionName" in suite)
-    || typeof suite.functionName !== "string"
+    || !("execution" in suite)
+    || !isMissionExecutionContract(suite.execution)
     || !("tests" in suite)
     || !Array.isArray(suite.tests)
     || suite.tests.length === 0
     || !suite.tests.every(isPublicTestCase)
   ) {
-    throw new Error("The server returned an invalid public test suite. Retry or switch to Demo Mode.");
+    throw new Error("The server returned an invalid public test suite. Retry or use Live Judge0 if it is configured.");
   }
 
   const execution = await executeInLocalPython(
     sourceCode,
-    suite.functionName,
+    suite.execution,
     suite.tests,
     onLocalStatus,
   );
@@ -118,10 +133,8 @@ async function executeLocalMission(
   return {
     status,
     summary,
-    isMock: false,
     executionSource: "local",
     executionScope: "public_tests_only",
-    isSimulated: false,
     completedAt: new Date().toISOString(),
     tests: execution.tests,
     totalTests: execution.tests.length,
@@ -168,12 +181,9 @@ export async function executeMission(
       || !("status" in payload)
       || !("executionSource" in payload)
       || payload.executionSource !== executionSource
-      || !("isSimulated" in payload)
-      || payload.isSimulated !== (executionSource === "demo")
       || !("executionScope" in payload)
       || (payload.executionScope !== "public_tests_only"
-        && payload.executionScope !== "full_suite"
-        && payload.executionScope !== "simulation")
+        && payload.executionScope !== "full_suite")
     ) {
       throw new Error("The execution service returned an invalid response.");
     }

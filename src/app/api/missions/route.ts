@@ -5,14 +5,17 @@ export function GET() {
   return NextResponse.json({
     success: true,
     count: missions.length,
-    missions: missions.map(({ id, title, shortDescription, description, difficulty, category, concepts, durationMinutes, examples, constraints, execution }) => ({
+    missions: missions.map(({ id, slug, title, shortDescription, description, difficulty, category, topic, concepts, hintMetadata, durationMinutes, examples, constraints, execution }) => ({
       id,
+      slug,
       title,
       shortDescription,
       description,
       difficulty,
       category,
+      topic,
       concepts,
+      hintMetadata,
       durationMinutes,
       examples,
       constraints,

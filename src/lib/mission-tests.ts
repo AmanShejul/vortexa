@@ -9,12 +9,21 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-export interface ServerTestCase {
+export interface FunctionServerTestCase {
   id: string;
   label: string;
   args: JsonValue[];
   expected: JsonValue;
 }
+
+export interface StdioServerTestCase {
+  id: string;
+  label: string;
+  stdin: string;
+  expectedStdout: string;
+}
+
+export type ServerTestCase = FunctionServerTestCase | StdioServerTestCase;
 
 interface MissionTestSuite {
   public: ServerTestCase[];
@@ -64,7 +73,7 @@ const missionTestSuites: Record<string, MissionTestSuite> = {
   },
   "count-vowels": {
     public: [
-      { id: "public-1", label: "Example 1", args: ["CodeQuest"], expected: 3 },
+      { id: "public-1", label: "Example 1", args: ["CodeQuest"], expected: 4 },
       { id: "public-2", label: "Example 2", args: ["rhythm"], expected: 0 },
     ],
     hidden: [
@@ -93,6 +102,119 @@ const missionTestSuites: Record<string, MissionTestSuite> = {
       { id: "hidden-1", label: "Private test 1", args: [[-5, -2, -9]], expected: -5 },
       { id: "hidden-2", label: "Private test 2", args: [[6, 6, 6]], expected: null },
       { id: "hidden-3", label: "Private test 3", args: [[-1000000000]], expected: null },
+    ],
+  },
+  "binary-search": {
+    public: [
+      { id: "public-1", label: "Target in middle", args: [[-4, 0, 3, 8, 12], 8], expected: 3 },
+      { id: "public-2", label: "Target absent", args: [[1, 2, 5], 4], expected: -1 },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [[], 2], expected: -1 },
+      { id: "hidden-2", label: "Private test 2", args: [[-10, -3, 5], -10], expected: 0 },
+      { id: "hidden-3", label: "Private test 3", args: [[1, 2, 5], 5], expected: 2 },
+    ],
+  },
+  "sort-numbers": {
+    public: [
+      { id: "public-1", label: "Sort and keep duplicates", args: [[5, -1, 3, 3]], expected: [-1, 3, 3, 5] },
+      { id: "public-2", label: "Sort empty list", args: [[]], expected: [] },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [[1]], expected: [1] },
+      { id: "hidden-2", label: "Private test 2", args: [[0, -5, 4, -5]], expected: [-5, -5, 0, 4] },
+    ],
+  },
+  "recursive-factorial": {
+    public: [
+      { id: "public-1", label: "Positive input", args: [5], expected: 120 },
+      { id: "public-2", label: "Base case", args: [0], expected: 1 },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [1], expected: 1 },
+      { id: "hidden-2", label: "Private test 2", args: [8], expected: 40320 },
+    ],
+  },
+  "character-frequency": {
+    public: [
+      { id: "public-1", label: "Repeated characters", args: ["banana"], expected: { b: 1, a: 3, n: 2 } },
+      { id: "public-2", label: "Empty string", args: [""], expected: {} },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: ["Aa "], expected: { A: 1, a: 1, " ": 1 } },
+      { id: "hidden-2", label: "Private test 2", args: ["!!!"], expected: { "!": 3 } },
+    ],
+  },
+  "balanced-brackets": {
+    public: [
+      { id: "public-1", label: "Nested bracket pairs", args: ["{[()]}"], expected: true },
+      { id: "public-2", label: "Wrong nesting order", args: ["([)]"], expected: false },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [""], expected: true },
+      { id: "hidden-2", label: "Private test 2", args: ["(("], expected: false },
+      { id: "hidden-3", label: "Private test 3", args: [")("], expected: false },
+    ],
+  },
+  "queue-operations": {
+    public: [
+      { id: "public-1", label: "First-in, first-out", args: [[["enqueue", 4], ["enqueue", 7], ["dequeue"]]], expected: [4] },
+      { id: "public-2", label: "Dequeue an empty queue", args: [[["dequeue"]]], expected: [null] },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [[]], expected: [] },
+      { id: "hidden-2", label: "Private test 2", args: [[["enqueue", 2], ["dequeue"], ["dequeue"]]], expected: [2, null] },
+    ],
+  },
+  "linked-list-cycle": {
+    public: [
+      { id: "public-1", label: "Cycle returns to head", args: [[1, 2, 0], 0], expected: true },
+      { id: "public-2", label: "List ends at null pointer", args: [[1, -1], 0], expected: false },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [[], -1], expected: false },
+      { id: "hidden-2", label: "Private test 2", args: [[-1], 0], expected: false },
+      { id: "hidden-3", label: "Private test 3", args: [[1, 2, 3, 1], 0], expected: true },
+    ],
+  },
+  "tree-depth": {
+    public: [
+      { id: "public-1", label: "Two-level tree", args: [{ value: 1, left: { value: 2, left: null, right: null }, right: { value: 3, left: null, right: null } }], expected: 2 },
+      { id: "public-2", label: "Empty tree", args: [null], expected: 0 },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [{ value: 9, left: null, right: null }], expected: 1 },
+      { id: "hidden-2", label: "Private test 2", args: [{ value: 1, left: { value: 2, left: { value: 3, left: null, right: null }, right: null }, right: null }], expected: 3 },
+    ],
+  },
+  "graph-reachability": {
+    public: [
+      { id: "public-1", label: "Connected nodes", args: [[[1], [0, 2], [1], []], 0, 2], expected: true },
+      { id: "public-2", label: "Disconnected nodes", args: [[[1], [0], [3], [2]], 0, 3], expected: false },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [[[], []], 0, 0], expected: true },
+      { id: "hidden-2", label: "Private test 2", args: [[[1, 2], [0, 2], [0, 1]], 2, 0], expected: true },
+    ],
+  },
+  "fibonacci-dp": {
+    public: [
+      { id: "public-1", label: "Later sequence value", args: [7], expected: 13 },
+      { id: "public-2", label: "First base case", args: [0], expected: 0 },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [1], expected: 1 },
+      { id: "hidden-2", label: "Private test 2", args: [10], expected: 55 },
+    ],
+  },
+  "count-input-lines": {
+    public: [
+      { id: "public-1", label: "Two lines with final newline", stdin: "red\nblue\n", expectedStdout: "2\n" },
+      { id: "public-2", label: "Empty input", stdin: "", expectedStdout: "0\n" },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", stdin: "single", expectedStdout: "1\n" },
+      { id: "hidden-2", label: "Private test 2", stdin: "\n\n", expectedStdout: "2\n" },
     ],
   },
 };

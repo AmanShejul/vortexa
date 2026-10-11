@@ -9,6 +9,7 @@ import type { ProgressSummary } from "@/types";
 type DashboardState =
   | { status: "loading" }
   | { status: "signed-out" }
+  | { status: "unavailable" }
   | { status: "error"; message: string }
   | { status: "ready"; data: ProgressSummary };
 
@@ -22,12 +23,7 @@ export function LearnerProgressDashboard() {
       const clientInstance = createSupabaseBrowserClient();
       if (!clientInstance) {
         await Promise.resolve();
-        if (active) {
-          setState({
-            status: "error",
-            message: "Saved progress is unavailable because Supabase is not configured. Missions and code execution remain available.",
-          });
-        }
+        if (active) setState({ status: "unavailable" });
         return;
       }
 
@@ -57,6 +53,10 @@ export function LearnerProgressDashboard() {
 
         if (response.status === 401) {
           setState({ status: "signed-out" });
+          return;
+        }
+        if (response.status === 503 && payload?.error === "Saved progress is not configured.") {
+          setState({ status: "unavailable" });
           return;
         }
         if (!response.ok) {
@@ -102,6 +102,20 @@ export function LearnerProgressDashboard() {
         <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-400">Your dashboard shows attempts and completed missions associated with your account.</p>
         <Link href="/auth" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-white px-4 text-sm font-semibold text-black transition hover:bg-neutral-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
           Sign in
+        </Link>
+      </div>
+    );
+  }
+
+  if (state.status === "unavailable") {
+    return (
+      <div className="rounded-2xl border border-[#292929] bg-[#101010] p-6 sm:p-8">
+        <p className="text-sm font-semibold text-white">Account-synced progress is optional</p>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-400">
+          Connect Supabase to save attempts to an account. Local Python practice still works, and browser-only practice patterns appear below when available.
+        </p>
+        <Link href="/missions" className="mt-5 inline-flex min-h-11 items-center rounded-xl border border-[#525252] px-4 text-sm font-semibold text-white transition hover:bg-[#1b1b1b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+          Browse missions
         </Link>
       </div>
     );

@@ -1,12 +1,8 @@
 import type { PyodideAPI } from "pyodide";
-import type { TestCaseResult } from "@/types";
+import type { MissionExecutionContract, TestCaseResult } from "@/types";
+import type { ServerTestCase } from "@/lib/mission-tests";
 
-export interface PublicPythonTestCase {
-  id: string;
-  label: string;
-  args: unknown[];
-  expected: unknown;
-}
+export type PublicPythonTestCase = ServerTestCase;
 
 export interface LocalPythonTestResult {
   tests: TestCaseResult[];
@@ -50,13 +46,24 @@ def __cq_run():
     __cq_namespace = {"__builtins__": dict(__import__("builtins").__dict__)}
     __cq_result = {"ok": False}
     try:
-        with __cq_contextlib.redirect_stdout(__cq_out), __cq_contextlib.redirect_stderr(__cq_err):
-            exec(compile(__cq_source, "<learner-code>", "exec"), __cq_namespace, __cq_namespace)
-            __cq_function = __cq_namespace.get(__cq_function_name)
-            if not callable(__cq_function):
-                raise NameError("Required function '" + __cq_function_name + "' was not found")
-            __cq_value = __cq_function(*__cq_json.loads(__cq_args_json))
-            __cq_result = {"ok": True, "value": __cq_value}
+        if __cq_execution_kind == "stdin_stdout":
+            import sys as __cq_sys
+            __cq_original_stdin = __cq_sys.stdin
+            try:
+                __cq_sys.stdin = __cq_io.StringIO(__cq_stdin_text)
+                with __cq_contextlib.redirect_stdout(__cq_out), __cq_contextlib.redirect_stderr(__cq_err):
+                    exec(compile(__cq_source, "<learner-code>", "exec"), __cq_namespace, __cq_namespace)
+                __cq_result = {"ok": True, "value": None}
+            finally:
+                __cq_sys.stdin = __cq_original_stdin
+        else:
+            with __cq_contextlib.redirect_stdout(__cq_out), __cq_contextlib.redirect_stderr(__cq_err):
+                exec(compile(__cq_source, "<learner-code>", "exec"), __cq_namespace, __cq_namespace)
+                __cq_function = __cq_namespace.get(__cq_function_name)
+                if not callable(__cq_function):
+                    raise NameError("Required function '" + __cq_function_name + "' was not found")
+                __cq_value = __cq_function(*__cq_json.loads(__cq_args_json))
+                __cq_result = {"ok": True, "value": __cq_value}
     except BaseException as __cq_exception:
         __cq_result = {
             "ok": False,
@@ -115,13 +122,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 async function runCase(
   pyodide: PyodideAPI,
   sourceCode: string,
-  functionName: string,
+  execution: MissionExecutionContract,
   testCase: PublicPythonTestCase,
 ): Promise<TestCaseResult> {
   const startedAt = performance.now();
   pyodide.globals.set("__cq_source", sourceCode);
-  pyodide.globals.set("__cq_function_name", functionName);
-  pyodide.globals.set("__cq_args_json", JSON.stringify(testCase.args));
+  pyodide.globals.set("__cq_execution_kind", execution.kind);
+  if (execution.kind === "function") {
+    if (!("args" in testCase)) throw new Error("The public function test case is invalid.");
+    pyodide.globals.set("__cq_function_name", execution.functionName);
+    pyodide.globals.set("__cq_args_json", JSON.stringify(testCase.args));
+  } else {
+    if (!("stdin" in testCase)) throw new Error("The public stdin/stdout test case is invalid.");
+    pyodide.globals.set("__cq_stdin_text", testCase.stdin);
+  }
 
   let rawResult: unknown;
   try {
@@ -142,10 +156,10 @@ async function runCase(
   try {
     payload = JSON.parse(payloadText) as unknown;
   } catch {
-    throw new Error("The Python runtime returned an unreadable result. Retry or switch to Demo Mode.");
+    throw new Error("The Python runtime returned an unreadable result. Retry or use Live Judge0 if it is configured.");
   }
   if (!isRecord(payload) || !isRecord(payload.result)) {
-    throw new Error("The Python runtime returned an invalid result. Retry or switch to Demo Mode.");
+    throw new Error("The Python runtime returned an invalid result. Retry or use Live Judge0 if it is configured.");
   }
 
   const result = payload.result;
@@ -171,28 +185,32 @@ async function runCase(
     };
   }
 
-  const actualOutput = result.value;
-  const passed = valuesEqual(actualOutput, testCase.expected);
+  const isStdioTest = "stdin" in testCase;
+  const actualOutput = isStdioTest ? stdout : result.value;
+  const expectedOutput = isStdioTest ? testCase.expectedStdout : testCase.expected;
+  const passed = valuesEqual(actualOutput, expectedOutput);
   return {
     ...shared,
     status: passed ? "passed" : "failed",
-    expectedOutput: outputString(testCase.expected),
+    expectedOutput: outputString(expectedOutput),
     actualOutput: outputString(actualOutput),
     ...(stdout ? { stdout } : {}),
     ...(stderr ? { stderr } : {}),
-    ...(!passed ? { errorMessage: "The returned value did not match the expected result." } : {}),
+    ...(!passed
+      ? { errorMessage: isStdioTest ? "The program's output did not match the expected output." : "The returned value did not match the expected result." }
+      : {}),
   };
 }
 
 export async function executePublicPythonTests(
   pyodide: PyodideAPI,
   sourceCode: string,
-  functionName: string,
+  execution: MissionExecutionContract,
   testCases: PublicPythonTestCase[],
 ): Promise<LocalPythonTestResult> {
   const tests: TestCaseResult[] = [];
   for (const testCase of testCases) {
-    tests.push(await runCase(pyodide, sourceCode, functionName, testCase));
+    tests.push(await runCase(pyodide, sourceCode, execution, testCase));
   }
   const passedTests = tests.filter((test) => test.status === "passed").length;
   const failedTests = tests.length - passedTests;

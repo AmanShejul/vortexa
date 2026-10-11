@@ -4,7 +4,23 @@ import { useMemo, useState } from "react";
 import { MissionCard } from "@/components/MissionCard";
 import type { Mission, MissionCategory } from "@/types";
 
-const filters: Array<"All" | MissionCategory> = ["All", "Fundamentals", "Conditionals", "Loops", "Arrays", "Strings"];
+const filters: Array<"All" | MissionCategory> = [
+  "All",
+  "Fundamentals",
+  "Conditionals",
+  "Loops",
+  "Arrays",
+  "Strings",
+  "Searching & Sorting",
+  "Recursion",
+  "Hash Maps",
+  "Stacks & Queues",
+  "Linked Lists",
+  "Trees",
+  "Graphs",
+  "Dynamic Programming",
+  "Input / Output",
+];
 
 export function MissionGrid({ missions }: { missions: Mission[] }) {
   const [query, setQuery] = useState("");
@@ -39,8 +55,8 @@ export function MissionGrid({ missions }: { missions: Mission[] }) {
         </label>
       </div>
 
-      <div className="-mx-1 mb-7 overflow-x-auto px-1 pb-2" aria-label="Filter missions by category">
-        <div className="flex w-max gap-2">
+      <div className="mb-7 px-1" aria-label="Filter missions by category">
+        <div className="flex flex-wrap gap-2">
           {filters.map((item) => (
             <button
               key={item}

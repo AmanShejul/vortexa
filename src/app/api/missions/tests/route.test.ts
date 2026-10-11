@@ -7,10 +7,24 @@ describe("GET /api/missions/tests", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload.functionName).toBe("sum_two_numbers");
+    expect(payload.execution).toMatchObject({ kind: "function", functionName: "sum_two_numbers" });
     expect(payload.tests).toHaveLength(2);
     expect(payload.tests.every((test: { id: string }) => test.id.startsWith("public-"))).toBe(true);
     expect(JSON.stringify(payload)).not.toContain("hidden");
+    expect(JSON.stringify(payload)).not.toContain("Private test");
+  });
+
+  it("returns a public stdin/stdout contract without exposing private cases", async () => {
+    const response = GET(new Request("http://localhost/api/missions/tests?missionId=count-input-lines"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.execution).toEqual({ kind: "stdin_stdout" });
+    expect(payload.tests).toEqual([
+      { id: "public-1", label: "Two lines with final newline", stdin: "red\nblue\n", expectedStdout: "2\n" },
+      { id: "public-2", label: "Empty input", stdin: "", expectedStdout: "0\n" },
+    ]);
+    expect(JSON.stringify(payload)).not.toContain("single");
     expect(JSON.stringify(payload)).not.toContain("Private test");
   });
 

@@ -1,12 +1,13 @@
 import { loadPyodide } from "pyodide";
 import { executePublicPythonTests, type PublicPythonTestCase } from "@/lib/pyodide-runner";
+import type { MissionExecutionContract } from "@/types";
 
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v0.29.5/full/";
 
 interface WorkerRequest {
   requestId: number;
   sourceCode: string;
-  functionName: string;
+  execution: MissionExecutionContract;
   testCases: PublicPythonTestCase[];
 }
 
@@ -32,7 +33,7 @@ self.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => {
     const result = await executePublicPythonTests(
       pyodide,
       request.sourceCode,
-      request.functionName,
+      request.execution,
       request.testCases,
     );
     self.postMessage({ type: "result", requestId: request.requestId, result });

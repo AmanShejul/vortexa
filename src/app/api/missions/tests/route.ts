@@ -11,15 +11,10 @@ export function GET(request: Request) {
   const mission = getMission(missionId);
   if (!mission) return NextResponse.json({ error: "Unknown mission." }, { status: 404 });
 
-  const publicTests = getMissionTestCases(missionId, "run").map(({ id, label, args, expected }) => ({
-    id,
-    label,
-    args,
-    expected,
-  }));
+  const publicTests = getMissionTestCases(missionId, "run");
 
   return NextResponse.json({
-    functionName: mission.execution.functionName,
+    execution: mission.execution,
     tests: publicTests,
   });
 }

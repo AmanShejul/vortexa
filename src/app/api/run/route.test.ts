@@ -35,7 +35,7 @@ import { Judge0ServiceError } from "@/lib/judge0";
 import { verifyMentorEvidenceToken } from "@/lib/mentor-evidence";
 import { HARNESS_MARKER } from "@/lib/python-harness";
 
-function makeRequest(mode: "run" | "submit" = "submit", executionSource: "live" | "demo" = "live") {
+function makeRequest(mode: "run" | "submit" = "submit", executionSource: "live" = "live") {
   return new Request("http://localhost/api/run", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer verified-test-token" },
@@ -125,34 +125,6 @@ describe("POST /api/run progress integrity", () => {
         && test.stderr === undefined
         && test.errorMessage === undefined,
     )).toBe(true);
-  });
-
-  describe("POST /api/run demo defaults", () => {
-    it.each(["run", "submit"] as const)("defaults omitted execution source to demo for %s without Judge0", async (mode) => {
-      vi.stubEnv("JUDGE0_API_URL", "");
-      const response = await POST(new Request("http://localhost/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          missionId: "sum-of-two-numbers",
-          sourceCode: "raise RuntimeError('must not be executed')",
-          language: "python",
-          mode,
-        }),
-      }));
-      const result = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(result.executionSource).toBe("demo");
-      expect(result.isSimulated).toBe(true);
-      expect(result.status).toBe("simulated");
-      expect(result.allPassed).toBe(false);
-      expect(result.passedTests).toBe(0);
-      expect(result.tests.every((test: { status: string }) => test.status === "simulated")).toBe(true);
-      expect(result.tests.every((test: { id: string }) => test.id.startsWith("public-"))).toBe(true);
-      expect(mocks.executePython).not.toHaveBeenCalled();
-      expect(mocks.persistMissionAttempt).not.toHaveBeenCalled();
-    });
   });
 
   it("never requests completion persistence for an incorrect submission", async () => {
@@ -286,6 +258,45 @@ describe("POST /api/run progress integrity", () => {
     expect(runResult.totalTests).toBeLessThan(submitResult.totalTests);
     expect(runResult.tests.every((test: { id: string }) => test.id.startsWith("public-"))).toBe(true);
     expect(submitResult.tests.some((test: { id: string }) => !test.id.startsWith("public-"))).toBe(true);
+  });
+
+  it("grades stdin/stdout programs with the same public/private Run and Submit boundary", async () => {
+    mocks.executePython.mockImplementation(async (harnessSource: string) => {
+      const inputSource = harnessSource.match(/^__cq_input = (.+)$/m)?.[1];
+      const input = inputSource ? JSON.parse(inputSource) as string : "";
+      const output = `${input.length === 0 ? 0 : input.split(/\r?\n/).length - Number(input.endsWith("\n"))}\n`;
+      return {
+        statusId: 3,
+        statusDescription: "Accepted",
+        stdout: `${HARNESS_MARKER}${JSON.stringify({ ok: true, stdout: output })}`,
+      };
+    });
+    const request = (mode: "run" | "submit") => new Request("http://localhost/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "******" },
+      body: JSON.stringify({
+        missionId: "count-input-lines",
+        sourceCode: "import sys\nprint(len(sys.stdin.read().splitlines()))",
+        language: "python",
+        mode,
+        executionSource: "live",
+      }),
+    });
+
+    const runResponse = await POST(request("run"));
+    const runResult = await runResponse.json();
+    const submitResponse = await POST(request("submit"));
+    const submitResult = await submitResponse.json();
+
+    expect(runResult.status).toBe("passed");
+    expect(runResult.totalTests).toBe(2);
+    expect(runResult.tests.every((test: { id: string }) => test.id.startsWith("public-"))).toBe(true);
+    expect(submitResult.status).toBe("passed");
+    expect(submitResult.totalTests).toBe(4);
+    expect(submitResult.tests.filter((test: { id: string }) => test.id.startsWith("hidden-")).every(
+      (test: { expectedOutput?: string; actualOutput?: string }) =>
+        test.expectedOutput === undefined && test.actualOutput === undefined,
+    )).toBe(true);
   });
 
   it("reports database persistence failure separately from a genuinely passing execution", async () => {
