@@ -219,7 +219,7 @@ export async function POST(request: Request) {
   const sourceCode = requestBody.sourceCode;
   const language = requestBody.language;
   const mode = requestBody.mode;
-  const executionSource = requestBody.executionSource ?? "live";
+  const executionSource = requestBody.executionSource ?? "demo";
   if (typeof missionId !== "string" || !/^[a-z0-9-]+$/.test(missionId)) {
     return errorResponse(400, "invalid_mission_id", "A valid mission ID is required.");
   }

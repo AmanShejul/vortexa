@@ -52,7 +52,7 @@ export async function executeMission(
   missionId: string,
   sourceCode: string,
   mode: ExecutionMode,
-  executionSource: ExecutionSource = "live",
+  executionSource: ExecutionSource = "demo",
 ): Promise<ExecutionResult> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
@@ -73,7 +73,15 @@ export async function executeMission(
     if (!response.ok) {
       throw new Error(getSafeExecutionError(response.status, payload));
     }
-    if (!payload || typeof payload !== "object" || !("status" in payload)) {
+    if (
+      !payload
+      || typeof payload !== "object"
+      || !("status" in payload)
+      || !("executionSource" in payload)
+      || payload.executionSource !== executionSource
+      || !("isSimulated" in payload)
+      || payload.isSimulated !== (executionSource === "demo")
+    ) {
       throw new Error("The execution service returned an invalid response.");
     }
     return payload as ExecutionResult;

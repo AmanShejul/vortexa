@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/run/route";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("/api/run demo mode", () => {
   it("does not require Judge0 and never returns hidden tests", async () => {
@@ -36,5 +40,23 @@ describe("/api/run demo mode", () => {
     }));
 
     expect(response.status).toBe(400);
+  });
+
+  it("returns a clear configuration error when live mode is explicitly selected without Judge0", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "");
+    const response = await POST(new Request("http://localhost/api/run", {
+      method: "POST",
+      body: JSON.stringify({
+        missionId: "sum-of-two-numbers",
+        sourceCode: "def sum_two_numbers(a, b): return a + b",
+        language: "python",
+        mode: "run",
+        executionSource: "live",
+      }),
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(payload.error.code).toBe("judge0_configuration_missing");
   });
 });

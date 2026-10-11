@@ -35,7 +35,7 @@ import { Judge0ServiceError } from "@/lib/judge0";
 import { verifyMentorEvidenceToken } from "@/lib/mentor-evidence";
 import { HARNESS_MARKER } from "@/lib/python-harness";
 
-function makeRequest(mode: "run" | "submit" = "submit") {
+function makeRequest(mode: "run" | "submit" = "submit", executionSource: "live" | "demo" = "live") {
   return new Request("http://localhost/api/run", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer verified-test-token" },
@@ -44,6 +44,7 @@ function makeRequest(mode: "run" | "submit" = "submit") {
       sourceCode: "def sum_two_numbers(a, b):\n    return a + b",
       language: "python",
       mode,
+      executionSource,
       learnerId: "attacker-controlled-id",
     }),
   });
@@ -83,6 +84,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.clearAllMocks();
 });
 
@@ -123,6 +125,34 @@ describe("POST /api/run progress integrity", () => {
         && test.stderr === undefined
         && test.errorMessage === undefined,
     )).toBe(true);
+  });
+
+  describe("POST /api/run demo defaults", () => {
+    it.each(["run", "submit"] as const)("defaults omitted execution source to demo for %s without Judge0", async (mode) => {
+      vi.stubEnv("JUDGE0_API_URL", "");
+      const response = await POST(new Request("http://localhost/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          missionId: "sum-of-two-numbers",
+          sourceCode: "raise RuntimeError('must not be executed')",
+          language: "python",
+          mode,
+        }),
+      }));
+      const result = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(result.executionSource).toBe("demo");
+      expect(result.isSimulated).toBe(true);
+      expect(result.status).toBe("simulated");
+      expect(result.allPassed).toBe(false);
+      expect(result.passedTests).toBe(0);
+      expect(result.tests.every((test: { status: string }) => test.status === "simulated")).toBe(true);
+      expect(result.tests.every((test: { id: string }) => test.id.startsWith("public-"))).toBe(true);
+      expect(mocks.executePython).not.toHaveBeenCalled();
+      expect(mocks.persistMissionAttempt).not.toHaveBeenCalled();
+    });
   });
 
   it("never requests completion persistence for an incorrect submission", async () => {
