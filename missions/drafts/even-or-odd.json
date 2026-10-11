@@ -1,0 +1,108 @@
+{
+  "draft_notice": {
+    "status": "PROVISIONAL",
+    "schema_status": "Not team-approved; temporary hand-authored JSON draft.",
+    "mission_id": "even-or-odd"
+  },
+  "title": "Even or Odd",
+  "problem_statement": "Read one integer and print `Even` if it is divisible by 2, or `Odd` otherwise. Zero is even. The capitalization must match exactly.",
+  "difficulty": "Beginner",
+  "concept_tags": [
+    "conditions",
+    "modulo",
+    "input-output"
+  ],
+  "constraints": [
+    "-1000000000 <= number <= 1000000000"
+  ],
+  "input_format": "One line containing one integer.",
+  "output_format": "Print exactly `Even` or `Odd`, with a capital first letter and no extra text.",
+  "starter_code": "def main():\n    number = int(input())\n\n    # TODO: Check whether the number is divisible by 2.\n    # TODO: Print exactly \"Even\" or \"Odd\" based on that check.\n    pass\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "public_samples": [
+    {
+      "id": "sample-1",
+      "input": "8\n",
+      "output": "Even\n",
+      "explanation": "8 is divisible by 2."
+    },
+    {
+      "id": "sample-2",
+      "input": "7\n",
+      "output": "Odd\n",
+      "explanation": "7 leaves a remainder of 1 when divided by 2."
+    },
+    {
+      "id": "sample-3",
+      "input": "0\n",
+      "output": "Even\n",
+      "explanation": "Zero is divisible by 2."
+    }
+  ],
+  "hints": [
+    "Think about what it means for an integer to be divisible by 2 with no remainder.",
+    "Python's modulo operator `%` gives the remainder after division.",
+    "Use a condition to compare `number % 2` with zero, then print the matching required word."
+  ],
+  "common_beginner_mistakes": [
+    "Using `/` instead of `%`; division does not directly tell whether there is a remainder.",
+    "Checking whether the number equals 2 instead of checking divisibility by 2.",
+    "Treating zero as odd even though zero is divisible by 2.",
+    "Checking whether `number == 1` to identify odd inputs instead of checking divisibility; this misclassifies most odd numbers.",
+    "Reversing the even and odd branches.",
+    "Printing lowercase or adding explanatory text when the required output is exactly `Even` or `Odd`."
+  ],
+  "completion_criteria": [
+    "Reads one integer from standard input.",
+    "Correctly distinguishes even and odd integers, including zero and negative values.",
+    "Prints exactly `Even` or `Odd` with the required capitalization and no extra text.",
+    "Passes all public samples and separately maintained private tests."
+  ],
+  "private_tests": {
+    "status": "Placeholder only; actual private cases are not included.",
+    "specification": "In approved private storage, cover positive and negative even and odd values, zero, and values at both constraint boundaries. Do not place private inputs or expected outputs in this public mission file."
+  },
+  "qa": {
+    "checklist": [
+      {
+        "check": "Draft is marked provisional and not team-approved.",
+        "status": "passed"
+      },
+      {
+        "check": "Mission fields, starter input format, required output text, and constraints are present and consistent.",
+        "status": "passed"
+      },
+      {
+        "check": "All public sample expected outputs are independently verified.",
+        "status": "passed"
+      },
+      {
+        "check": "At least five relevant beginner mistakes and three progressive hints are included.",
+        "status": "passed"
+      },
+      {
+        "check": "No private test inputs or expected outputs are stored in this public draft.",
+        "status": "passed"
+      }
+    ],
+    "public_sample_results": [
+      {
+        "sample_id": "sample-1",
+        "expected_output": "Even\n",
+        "actual_output": "Even\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-2",
+        "expected_output": "Odd\n",
+        "actual_output": "Odd\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-3",
+        "expected_output": "Even\n",
+        "actual_output": "Even\n",
+        "status": "passed"
+      }
+    ]
+  }
+}
