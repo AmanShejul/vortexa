@@ -46,7 +46,6 @@ export interface Mission {
   starterCode: string;
   examples: ExampleCase[];
   constraints: string[];
-  hints: HintSet;
   execution: FunctionExecutionContract;
 }
 
@@ -92,6 +91,8 @@ export interface ExecutionResult {
   mode: ExecutionMode;
   attemptId?: string;
   errorMessage?: string;
+  persistenceStatus?: "saved" | "not_signed_in" | "unavailable" | "failed";
+  mentorEvidenceToken?: string;
 }
 
 export type ExecutionMode = "run" | "submit";
@@ -167,5 +168,6 @@ export interface MentorResponse {
   hint: string;
   hintLevel: 1 | 2 | 3;
   isFallback: boolean;
+  nextEvidenceToken?: string;
   recommendedNextMissionId?: string;
 }

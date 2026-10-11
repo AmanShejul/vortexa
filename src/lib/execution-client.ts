@@ -1,11 +1,42 @@
 import type { ExecutionMode, ExecutionResult } from "@/types";
+import { getBrowserAccessToken } from "@/lib/supabase";
 
 const CLIENT_TIMEOUT_MS = 35_000;
 
 interface ErrorResponse {
-  error?: {
-    message?: string;
-  };
+  error?: string | { code?: string; message?: string };
+}
+
+export function getSafeExecutionError(status: number, payload: unknown): string {
+  const error = payload && typeof payload === "object" && "error" in payload
+    ? (payload as ErrorResponse).error
+    : undefined;
+  const code = typeof error === "object" && error !== null ? error.code : undefined;
+
+  if (code === "judge0_configuration_missing") {
+    return "Python execution is not configured. Add your Judge0 API URL as JUDGE0_API_URL in .env.local, then restart the app.";
+  }
+  if (code === "judge0_configuration_invalid") {
+    return "The Judge0 URL or Python language ID is invalid. Check JUDGE0_API_URL and JUDGE0_PYTHON_LANGUAGE_ID in .env.local.";
+  }
+  if (code === "judge0_authentication_failed") {
+    return "Judge0 rejected its configured credentials. Check JUDGE0_API_KEY and the auth header settings in .env.local.";
+  }
+  if (code === "judge0_request_rejected") {
+    return "Judge0 rejected the execution request. Check the endpoint and provider limits.";
+  }
+  if (code === "judge0_provider_timeout" || code === "judge0_poll_timeout") {
+    return "Judge0 took too long to respond. Please try again in a moment.";
+  }
+
+  if (status === 502 || status === 503) {
+    return "The code execution service is unavailable. Please try again in a moment.";
+  }
+  if (status === 504) {
+    return "Execution took too long. Try a smaller or more efficient solution.";
+  }
+
+  return "The execution request could not be completed. Please try again.";
 }
 
 export async function executeMission(
@@ -17,17 +48,20 @@ export async function executeMission(
   const timeout = window.setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
 
   try {
+    const accessToken = await getBrowserAccessToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
     const response = await fetch("/api/run", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ missionId, sourceCode, language: "python", mode }),
       signal: controller.signal,
     });
 
     const payload: unknown = await response.json().catch(() => null);
     if (!response.ok) {
-      const errorResponse = payload as ErrorResponse | null;
-      throw new Error(errorResponse?.error?.message ?? "The execution request failed.");
+      throw new Error(getSafeExecutionError(response.status, payload));
     }
     if (!payload || typeof payload !== "object" || !("status" in payload)) {
       throw new Error("The execution service returned an invalid response.");

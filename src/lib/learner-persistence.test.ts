@@ -12,9 +12,10 @@ describe("learner persistence helpers", () => {
   });
 
   it("only marks a mission complete when the trusted server result passed", () => {
-    expect(shouldCompleteMission({ status: "passed", allPassed: true })).toBe(true);
-    expect(shouldCompleteMission({ status: "wrong_answer", allPassed: false })).toBe(false);
-    expect(shouldCompleteMission({ status: "passed", allPassed: false })).toBe(false);
+    expect(shouldCompleteMission({ status: "passed", allPassed: true, mode: "submit" })).toBe(true);
+    expect(shouldCompleteMission({ status: "passed", allPassed: true, mode: "run" })).toBe(false);
+    expect(shouldCompleteMission({ status: "wrong_answer", allPassed: false, mode: "submit" })).toBe(false);
+    expect(shouldCompleteMission({ status: "passed", allPassed: false, mode: "submit" })).toBe(false);
   });
 
   it("enforces learner ownership", () => {

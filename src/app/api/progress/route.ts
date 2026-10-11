@@ -1,21 +1,10 @@
 import { NextResponse } from "next/server";
-import { getAuthenticatedUser, isSupabaseConfigured } from "@/lib/supabase";
+import { getAuthenticatedUser, isSupabasePersistenceConfigured } from "@/lib/supabase";
 import { getProgressSummary } from "@/lib/learner-persistence";
 
 export async function GET(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json({
-      ok: true,
-      summary: {
-        missionsCompleted: 0,
-        totalAttempts: 0,
-        successRate: 0,
-        currentLearningProgress: 0,
-        recentAttempts: [],
-        repeatedMistakes: [],
-        empty: true,
-      },
-    });
+  if (!isSupabasePersistenceConfigured()) {
+    return NextResponse.json({ ok: false, error: "Saved progress is not configured." }, { status: 503 });
   }
 
   const user = await getAuthenticatedUser(request);
@@ -25,15 +14,10 @@ export async function GET(request: Request) {
 
   try {
     const summary = await getProgressSummary(user.id);
-    return NextResponse.json({ ok: true, summary: summary ?? {
-      missionsCompleted: 0,
-      totalAttempts: 0,
-      successRate: 0,
-      currentLearningProgress: 0,
-      recentAttempts: [],
-      repeatedMistakes: [],
-      empty: true,
-    } });
+    if (!summary) {
+      return NextResponse.json({ ok: false, error: "Saved progress is unavailable." }, { status: 503 });
+    }
+    return NextResponse.json({ ok: true, summary });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Progress lookup failed." }, { status: 503 });
   }

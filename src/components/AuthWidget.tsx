@@ -12,25 +12,25 @@ interface SessionState {
 }
 
 export function AuthWidget() {
-  const [state, setState] = useState<SessionState>(() => {
-    const client = createSupabaseBrowserClient();
-    return client
-      ? { loading: true, signedIn: false, error: null }
-      : { loading: false, signedIn: false, error: "Supabase is not configured." };
-  });
+  const [state, setState] = useState<SessionState>({ loading: true, signedIn: false, error: null });
 
   useEffect(() => {
+    let active = true;
     const client = createSupabaseBrowserClient();
     if (!client) {
-      return;
+      void Promise.resolve().then(() => {
+        if (active) setState({ loading: false, signedIn: false, error: "Supabase is not configured." });
+      });
+      return () => {
+        active = false;
+      };
     }
 
     const clientInstance = client;
-    const active = { current: true };
 
     async function loadSession() {
       const { data, error } = await clientInstance.auth.getSession();
-      if (!active.current) return;
+      if (!active) return;
 
       if (error) {
         setState({ loading: false, signedIn: false, error: error.message });
@@ -47,7 +47,7 @@ export function AuthWidget() {
 
     void loadSession();
     const { data: subscription } = clientInstance.auth.onAuthStateChange((_event, session) => {
-      if (!active.current) return;
+      if (!active) return;
       setState({
         loading: false,
         signedIn: Boolean(session),
@@ -57,7 +57,7 @@ export function AuthWidget() {
     });
 
     return () => {
-      active.current = false;
+      active = false;
       subscription?.subscription.unsubscribe();
     };
   }, []);

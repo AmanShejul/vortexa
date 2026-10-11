@@ -41,8 +41,12 @@ export function normalizeAttemptOutcome(status: ExecutionResult["status"] | Atte
   }
 }
 
-export function shouldCompleteMission(result: Pick<ExecutionResult, "status" | "allPassed">): boolean {
-  return result.status === "passed" && result.allPassed;
+export function shouldCompleteMission(result: {
+  status: ExecutionResult["status"] | AttemptOutcome;
+  allPassed: boolean;
+  mode: ExecutionMode;
+}): boolean {
+  return result.mode === "submit" && result.status === "passed" && result.allPassed;
 }
 
 export function buildProgressSummary(args: {
@@ -113,7 +117,11 @@ export async function persistMissionAttempt(args: PersistedAttemptArgs): Promise
     total_tests: args.totalTests,
     hint_level: args.hintLevel ?? null,
     mistake_category: args.mistakeCategory ?? null,
-    completed: Boolean(args.allPassed && args.executionStatus === "passed"),
+    completed: shouldCompleteMission({
+      status: args.executionStatus,
+      allPassed: Boolean(args.allPassed),
+      mode: args.mode,
+    }),
     created_at: new Date().toISOString(),
   };
 
@@ -127,7 +135,11 @@ export async function persistMissionAttempt(args: PersistedAttemptArgs): Promise
     throw new Error(error.message);
   }
 
-  if (args.allPassed && args.executionStatus === "passed") {
+  if (shouldCompleteMission({
+    status: args.executionStatus,
+    allPassed: Boolean(args.allPassed),
+    mode: args.mode,
+  })) {
     const { error: completionError } = await client
       .from("mission_completions")
       .upsert(

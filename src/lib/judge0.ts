@@ -3,6 +3,16 @@ const POLL_TIMEOUT_MS = 8_000;
 const NETWORK_TIMEOUT_MS = 5_000;
 const PYTHON_LANGUAGE_ID = 71;
 
+export type Judge0ServiceErrorCode =
+  | "configuration_missing"
+  | "configuration_invalid"
+  | "authentication_failed"
+  | "provider_unavailable"
+  | "provider_timeout"
+  | "request_rejected"
+  | "invalid_response"
+  | "poll_timeout";
+
 export interface Judge0ExecutionResult {
   statusId: number;
   statusDescription: string;
@@ -17,6 +27,7 @@ export class Judge0ServiceError extends Error {
   constructor(
     message: string,
     public readonly httpStatus: 502 | 503 | 504,
+    public readonly code: Judge0ServiceErrorCode = "provider_unavailable",
   ) {
     super(message);
     this.name = "Judge0ServiceError";
@@ -25,13 +36,15 @@ export class Judge0ServiceError extends Error {
 
 function getConfig(): { submissionsUrl: string; headers: Record<string, string>; languageId: number } {
   const configuredUrl = process.env.JUDGE0_API_URL?.trim();
-  if (!configuredUrl) throw new Judge0ServiceError("Code execution service is not configured.", 503);
+  if (!configuredUrl) {
+    throw new Judge0ServiceError("Code execution service is not configured.", 503, "configuration_missing");
+  }
 
   let normalizedUrl: string;
   try {
     normalizedUrl = new URL(configuredUrl).toString().replace(/\/+$/, "");
   } catch {
-    throw new Judge0ServiceError("Code execution service configuration is invalid.", 503);
+    throw new Judge0ServiceError("Code execution service configuration is invalid.", 503, "configuration_invalid");
   }
 
   const submissionsUrl = normalizedUrl.endsWith("/submissions")
@@ -51,7 +64,7 @@ function getConfig(): { submissionsUrl: string; headers: Record<string, string>;
   const configuredLanguageId = process.env.JUDGE0_PYTHON_LANGUAGE_ID?.trim();
   const languageId = configuredLanguageId ? Number(configuredLanguageId) : PYTHON_LANGUAGE_ID;
   if (!Number.isInteger(languageId) || languageId <= 0) {
-    throw new Judge0ServiceError("Code execution language configuration is invalid.", 503);
+    throw new Judge0ServiceError("Code execution language configuration is invalid.", 503, "configuration_invalid");
   }
 
   return { submissionsUrl, headers, languageId };
@@ -72,20 +85,20 @@ async function requestJson(url: string, init: RequestInit, timeoutMs: number): P
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        throw new Judge0ServiceError("Code execution service authentication failed.", 503);
+        throw new Judge0ServiceError("Code execution service authentication failed.", 503, "authentication_failed");
       }
       if (response.status === 429 || response.status >= 500) {
-        throw new Judge0ServiceError("Code execution service is temporarily unavailable.", 503);
+        throw new Judge0ServiceError("Code execution service is temporarily unavailable.", 503, "provider_unavailable");
       }
-      throw new Judge0ServiceError("Code execution service rejected the request.", 502);
+      throw new Judge0ServiceError("Code execution service rejected the request.", 502, "request_rejected");
     }
     return payload;
   } catch (error) {
     if (error instanceof Judge0ServiceError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Judge0ServiceError("Code execution service timed out.", 504);
+      throw new Judge0ServiceError("Code execution service timed out.", 504, "provider_timeout");
     }
-    throw new Judge0ServiceError("Code execution service is unavailable.", 503);
+    throw new Judge0ServiceError("Code execution service is unavailable.", 503, "provider_unavailable");
   } finally {
     clearTimeout(timer);
   }
@@ -110,12 +123,14 @@ function getString(value: unknown): string | undefined {
 
 function parseExecutionResult(payload: unknown): Judge0ExecutionResult {
   if (!payload || typeof payload !== "object") {
-    throw new Judge0ServiceError("Code execution service returned an invalid response.", 502);
+    throw new Judge0ServiceError("Code execution service returned an invalid response.", 502, "invalid_response");
   }
   const data = payload as Record<string, unknown>;
   const status = data.status && typeof data.status === "object" ? (data.status as Record<string, unknown>) : null;
   const statusId = getNumber(data.status_id) ?? getNumber(status?.id);
-  if (!statusId) throw new Judge0ServiceError("Code execution service returned no execution status.", 502);
+  if (!statusId) {
+    throw new Judge0ServiceError("Code execution service returned no execution status.", 502, "invalid_response");
+  }
 
   return {
     statusId,
@@ -153,7 +168,7 @@ export async function executePython(sourceCode: string, stdin?: string): Promise
     NETWORK_TIMEOUT_MS,
   );
   if (!created || typeof created !== "object" || typeof (created as { token?: unknown }).token !== "string") {
-    throw new Judge0ServiceError("Code execution service did not return a submission token.", 502);
+    throw new Judge0ServiceError("Code execution service did not return a submission token.", 502, "invalid_response");
   }
 
   const token = (created as { token: string }).token;
@@ -169,5 +184,5 @@ export async function executePython(sourceCode: string, stdin?: string): Promise
     await wait(POLL_INTERVAL_MS);
   }
 
-  throw new Judge0ServiceError("Code execution exceeded the polling timeout.", 504);
+  throw new Judge0ServiceError("Code execution exceeded the polling timeout.", 504, "poll_timeout");
 }

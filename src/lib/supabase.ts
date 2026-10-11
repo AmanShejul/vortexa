@@ -22,6 +22,10 @@ export function isSupabaseConfigured(): boolean {
   return getSupabaseConfig() !== null;
 }
 
+export function isSupabasePersistenceConfigured(): boolean {
+  return Boolean(getSupabaseConfig()?.serviceRoleKey);
+}
+
 export function getBearerTokenFromRequest(request?: Request): string | null {
   if (!request) return null;
   const headerValue = request.headers.get("authorization");
@@ -43,6 +47,14 @@ export function createSupabaseBrowserClient() {
       flowType: "pkce",
     },
   });
+}
+
+export async function getBrowserAccessToken(): Promise<string | null> {
+  const client = createSupabaseBrowserClient();
+  if (!client) return null;
+
+  const { data } = await client.auth.getSession();
+  return data.session?.access_token ?? null;
 }
 
 export function createSupabaseAnonClient() {

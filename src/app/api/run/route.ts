@@ -3,7 +3,9 @@ import { getMission } from "@/lib/missions";
 import { getMissionTestCases, type ServerTestCase } from "@/lib/mission-tests";
 import { buildPythonHarness, parseHarnessOutput, type HarnessResult } from "@/lib/python-harness";
 import { executePython, Judge0ServiceError, type Judge0ExecutionResult } from "@/lib/judge0";
-import { getAuthenticatedUser, isSupabaseConfigured } from "@/lib/supabase";
+import { classifyMistake } from "../../../../yash/aiMentor.js";
+import { createMentorEvidenceToken, isMentorEvidenceSigningAvailable } from "@/lib/mentor-evidence";
+import { getAuthenticatedUser, getBearerTokenFromRequest, isSupabaseConfigured, isSupabasePersistenceConfigured } from "@/lib/supabase";
 import { persistMissionAttempt } from "@/lib/learner-persistence";
 import type { ExecutionMode, ExecutionResult, TestCaseResult } from "@/types";
 
@@ -67,6 +69,9 @@ function evaluateTest(testCase: ServerTestCase, judgeResult: Judge0ExecutionResu
   }
   if (judgeResult.statusId === 6) {
     return { ...shared, status: "compilation_error", ...(publicTest ? { stderr: truncate(judgeResult.compileOutput || judgeResult.stderr), errorMessage: "Python could not compile this submission." } : {}) };
+  }
+  if (judgeResult.statusId === 13 || judgeResult.statusId === 14 || judgeResult.statusId < 3 || judgeResult.statusId > 14) {
+    return { ...shared, status: "execution_error", ...(publicTest ? { errorMessage: "The execution service did not return a usable result." } : {}) };
   }
   if (judgeResult.statusId !== 3) {
     return { ...shared, status: judgeResult.statusId === 4 ? "failed" : "runtime_error", ...(publicTest ? { stderr: truncate(judgeResult.stderr), errorMessage: formatFailureMessage(judgeResult, null) } : {}) };
@@ -200,16 +205,44 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     if (error instanceof Judge0ServiceError) {
-      return errorResponse(error.httpStatus, "execution_service_error", error.message);
+      return errorResponse(error.httpStatus, `judge0_${error.code}`, error.message);
     }
     return errorResponse(500, "execution_failed", "The execution request could not be completed.");
   }
 
   const executionResult = createResult(mode, tests, testCases.length);
-
-  if (isSupabaseConfigured()) {
+  const authorizationWasProvided = Boolean(getBearerTokenFromRequest(request));
+  let user: Awaited<ReturnType<typeof getAuthenticatedUser>> = null;
+  let identityVerified = !isSupabaseConfigured() || !authorizationWasProvided;
+  if (isSupabaseConfigured() && authorizationWasProvided) {
     try {
-      const user = await getAuthenticatedUser(request);
+      user = await getAuthenticatedUser(request);
+      identityVerified = user !== null;
+    } catch {
+      identityVerified = false;
+    }
+  } else if (isSupabaseConfigured()) {
+    try {
+      user = await getAuthenticatedUser(request);
+    } catch {
+      user = null;
+    }
+  }
+
+  if (executionResult.status !== "execution_error" && identityVerified && isMentorEvidenceSigningAvailable()) {
+    executionResult.mentorEvidenceToken = createMentorEvidenceToken({
+      missionId,
+      sourceCode,
+      mode,
+      userId: user?.id ?? null,
+      status: executionResult.status,
+      category: classifyMistake(sourceCode, executionResult),
+    });
+  }
+
+  executionResult.persistenceStatus = "unavailable";
+  if (isSupabasePersistenceConfigured()) {
+    try {
       if (user) {
         const attempt = await persistMissionAttempt({
           learnerId: user.id,
@@ -224,10 +257,15 @@ export async function POST(request: Request) {
 
         if (!attempt.skipped) {
           executionResult.attemptId = attempt.id;
+          executionResult.persistenceStatus = "saved";
+        } else {
+          executionResult.persistenceStatus = "unavailable";
         }
+      } else {
+        executionResult.persistenceStatus = "not_signed_in";
       }
     } catch {
-      // Database outages should never be reported as a false execution success.
+      executionResult.persistenceStatus = "failed";
     }
   }
 

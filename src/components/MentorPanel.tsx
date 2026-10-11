@@ -1,15 +1,14 @@
 "use client";
 
-import type { HintSet } from "@/types";
+import type { ExecutionMode, ExecutionStatus, HintSet } from "@/types";
 
 const levels: Array<{ key: keyof HintSet; label: string; detail: string }> = [
   { key: "nudge", label: "Nudge", detail: "A small conceptual clue" },
   { key: "approach", label: "Approach", detail: "A way to frame the solution" },
-  { key: "detailed", label: "Detailed guidance", detail: "A more explicit explanation" }
+  { key: "detailed", label: "Detailed guidance", detail: "A more explicit explanation" },
 ];
 
 interface MentorPanelProps {
-  hints: HintSet;
   dynamicHints?: Partial<HintSet>;
   revealedHintCount: number;
   hintCategory?: string;
@@ -17,11 +16,16 @@ interface MentorPanelProps {
   hintError?: string | null;
   hintLoading?: boolean;
   canRequestHint: boolean;
+  executionMode?: ExecutionMode;
+  executionStatus?: ExecutionStatus;
   onRequestHint: (level: number) => void;
 }
 
+function readableCategory(category: string): string {
+  return category.replaceAll("_", " ").toLowerCase().replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
+
 export function MentorPanel({
-  hints,
   dynamicHints = {},
   revealedHintCount,
   hintCategory,
@@ -29,31 +33,110 @@ export function MentorPanel({
   hintError,
   hintLoading = false,
   canRequestHint,
-  onRequestHint
+  executionMode,
+  executionStatus,
+  onRequestHint,
 }: MentorPanelProps) {
   const nextLevel = Math.min(revealedHintCount + 1, levels.length);
   const allRevealed = revealedHintCount >= levels.length;
+  const hasPassed = executionStatus === "passed" && executionMode === "submit";
+  const publicExamplesPassed = executionStatus === "passed" && executionMode === "run";
 
-  return <div className="space-y-3">
-    {hintExplanation && <div className="rounded-xl border border-[#404040] bg-[#161616] px-3 py-3 text-sm leading-6 text-neutral-300">
-      {hintCategory && <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-500">{hintCategory}</p>}
-      {hintExplanation}
-    </div>}
-    {hintError && <div role="alert" className="rounded-xl border border-[#737373] bg-[#161616] px-3 py-3 text-sm leading-6 text-neutral-200">{hintError}</div>}
-    {levels.map((level, index) => {
-      const isRevealed = index < revealedHintCount;
-      const content = dynamicHints[level.key] ?? hints[level.key];
-      return <div key={level.key} className={`rounded-xl border p-4 transition ${isRevealed ? "border-[#737373] bg-[#161616]" : "border-[#292929] bg-[#101010]"}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div><p className="text-sm font-semibold text-white">{index + 1}. {level.label}</p><p className="mt-1 text-xs text-neutral-500">{level.detail}</p></div>
-          {isRevealed ? <span className="text-xs text-neutral-300">revealed</span> : <span className="font-mono text-xs text-neutral-600">locked</span>}
+  return (
+    <div className="space-y-3">
+      {hasPassed && (
+        <div className="rounded-xl border border-emerald-900/70 bg-emerald-950/30 px-4 py-3" role="status">
+          <p className="text-sm font-semibold text-emerald-200">Mission passed</p>
+          <p className="mt-1 text-xs leading-5 text-emerald-100/70">All required tests passed. You can review the test results or try another mission.</p>
         </div>
-        {isRevealed && <p className="mt-3 border-t border-[#292929] pt-3 text-sm leading-6 text-neutral-300">{content}</p>}
-      </div>;
-    })}
-    <button type="button" onClick={() => onRequestHint(nextLevel)} disabled={allRevealed || hintLoading || !canRequestHint} className="w-full rounded-xl border border-[#737373] bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1f1f1f] disabled:cursor-not-allowed disabled:border-[#292929] disabled:text-neutral-600">
-      {hintLoading ? "Getting hint…" : allRevealed ? "All guidance revealed" : !canRequestHint ? "Run code to unlock hints" : `Get hint ${nextLevel}`}
-    </button>
-    <p className="text-center font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-600">Hints use the latest real execution result</p>
-  </div>;
+      )}
+      {publicExamplesPassed && (
+        <div className="rounded-xl border border-emerald-900/70 bg-emerald-950/20 px-4 py-3" role="status">
+          <p className="text-sm font-semibold text-emerald-200">Public examples passed</p>
+          <p className="mt-1 text-xs leading-5 text-emerald-100/70">Submit to verify the complete mission test suite.</p>
+        </div>
+      )}
+
+      {!canRequestHint && !hasPassed && (
+        <div className="rounded-xl border border-[#292929] bg-[#0b0b0b] px-4 py-3">
+          <p className="text-sm font-medium text-neutral-300">
+            {executionStatus === "execution_error"
+              ? "Mentor guidance is unavailable for this execution."
+              : executionStatus
+                ? "Trusted mentor evidence is unavailable for this run. Run it again or check the server configuration."
+              : "Run your code to unlock mentor guidance."}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">
+            Hints are based on a real result from the current version of your solution.
+          </p>
+        </div>
+      )}
+
+      {hintExplanation && (
+        <div className="rounded-xl border border-[#404040] bg-[#161616] px-4 py-3 text-sm leading-6 text-neutral-300">
+          {hintCategory && (
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-400">
+              Mistake pattern · {readableCategory(hintCategory)}
+            </p>
+          )}
+          {hintExplanation}
+        </div>
+      )}
+
+      {hintError && (
+        <div role="alert" className="rounded-xl border border-rose-900/70 bg-rose-950/20 px-4 py-3 text-sm leading-6 text-rose-100">
+          {hintError}
+        </div>
+      )}
+
+      {levels.map((level, index) => {
+        const isRevealed = index < revealedHintCount;
+        const content = dynamicHints[level.key];
+        return (
+          <section
+            key={level.key}
+            aria-label={`${level.label}${isRevealed ? ", revealed" : ", locked"}`}
+            className={`rounded-xl border p-4 transition-colors ${
+              isRevealed ? "border-[#525252] bg-[#151515]" : "border-[#292929] bg-[#0b0b0b]"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-white">{index + 1}. {level.label}</p>
+                <p className="mt-1 text-xs text-neutral-500">{level.detail}</p>
+              </div>
+              <span className={`shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] ${isRevealed ? "text-neutral-300" : "text-neutral-600"}`}>
+                {isRevealed ? "Revealed" : "Locked"}
+              </span>
+            </div>
+            {isRevealed && (
+              <p className="mt-3 border-t border-[#292929] pt-3 text-sm leading-6 text-neutral-300">
+                {content}
+              </p>
+            )}
+          </section>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={() => onRequestHint(nextLevel)}
+        disabled={hasPassed || allRevealed || hintLoading || !canRequestHint}
+        className="w-full rounded-xl border border-[#525252] bg-[#181818] px-4 py-3 text-sm font-semibold text-white transition hover:border-[#737373] hover:bg-[#202020] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:border-[#292929] disabled:bg-[#101010] disabled:text-neutral-600"
+      >
+        {hintLoading
+          ? "Getting hint…"
+          : hasPassed
+            ? "No hint needed — mission passed"
+            : allRevealed
+              ? "All guidance revealed"
+              : !canRequestHint
+                ? "Run code to unlock hints"
+                : `Reveal ${levels[nextLevel - 1]?.label.toLowerCase() ?? "hint"}`}
+      </button>
+      <p className="text-center font-mono text-[10px] leading-5 text-neutral-600">
+        {hasPassed ? "Guidance is rule-based and grounded in the test result." : "One level at a time · grounded in the latest real test result"}
+      </p>
+    </div>
+  );
 }
