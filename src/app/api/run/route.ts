@@ -1,0 +1,235 @@
+import { NextResponse } from "next/server";
+import { getMission } from "@/lib/missions";
+import { getMissionTestCases, type ServerTestCase } from "@/lib/mission-tests";
+import { buildPythonHarness, parseHarnessOutput, type HarnessResult } from "@/lib/python-harness";
+import { executePython, Judge0ServiceError, type Judge0ExecutionResult } from "@/lib/judge0";
+import { getAuthenticatedUser, isSupabaseConfigured } from "@/lib/supabase";
+import { persistMissionAttempt } from "@/lib/learner-persistence";
+import type { ExecutionMode, ExecutionResult, TestCaseResult } from "@/types";
+
+const MAX_REQUEST_BYTES = 128 * 1024;
+const MAX_SOURCE_BYTES = 64 * 1024;
+const TOTAL_EXECUTION_TIMEOUT_MS = 30_000;
+
+function errorResponse(status: 400 | 404 | 413 | 422 | 500 | 502 | 503 | 504, code: string, message: string) {
+  return NextResponse.json({ error: { code, message } }, { status });
+}
+
+function truncate(value: string | undefined, maxLength = 4_000): string | undefined {
+  if (!value) return undefined;
+  return value.length > maxLength ? `${value.slice(0, maxLength)}\n[truncated]` : value;
+}
+
+function stringifyValue(value: unknown): string | undefined {
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized === undefined ? undefined : serialized;
+  } catch {
+    return undefined;
+  }
+}
+
+function valuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => valuesEqual(value, right[index]));
+  }
+  if (left && right && typeof left === "object" && typeof right === "object") {
+    const leftKeys = Object.keys(left).sort();
+    const rightKeys = Object.keys(right).sort();
+    if (leftKeys.length !== rightKeys.length || !leftKeys.every((key, index) => key === rightKeys[index])) return false;
+    return leftKeys.every((key) => valuesEqual((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]));
+  }
+  return false;
+}
+
+function isPublicTest(testCase: ServerTestCase): boolean {
+  return testCase.id.startsWith("public-");
+}
+
+function formatFailureMessage(judgeResult: Judge0ExecutionResult, harnessResult: HarnessResult | null): string | undefined {
+  return truncate(
+    harnessResult?.errorMessage || judgeResult.compileOutput || judgeResult.stderr || judgeResult.message || judgeResult.statusDescription,
+  );
+}
+
+function evaluateTest(testCase: ServerTestCase, judgeResult: Judge0ExecutionResult): TestCaseResult {
+  const publicTest = isPublicTest(testCase);
+  const harnessResult = judgeResult.statusId === 3 ? parseHarnessOutput(judgeResult.stdout ?? "") : null;
+  const shared = {
+    id: testCase.id,
+    label: testCase.label,
+    durationMs: harnessResult?.durationMs ?? judgeResult.timeMs,
+  };
+
+  if (judgeResult.statusId === 5) {
+    return { ...shared, status: "time_limit_exceeded", ...(publicTest ? { stderr: truncate(judgeResult.stderr), errorMessage: "The test exceeded the execution time limit." } : {}) };
+  }
+  if (judgeResult.statusId === 6) {
+    return { ...shared, status: "compilation_error", ...(publicTest ? { stderr: truncate(judgeResult.compileOutput || judgeResult.stderr), errorMessage: "Python could not compile this submission." } : {}) };
+  }
+  if (judgeResult.statusId !== 3) {
+    return { ...shared, status: judgeResult.statusId === 4 ? "failed" : "runtime_error", ...(publicTest ? { stderr: truncate(judgeResult.stderr), errorMessage: formatFailureMessage(judgeResult, null) } : {}) };
+  }
+  if (!harnessResult) {
+    return { ...shared, status: "execution_error", ...(publicTest ? { errorMessage: "The execution harness returned an invalid result." } : {}) };
+  }
+  if (!harnessResult.ok) {
+    return { ...shared, status: "runtime_error", ...(publicTest ? { errorMessage: formatFailureMessage(judgeResult, harnessResult) } : {}) };
+  }
+
+  const passed = valuesEqual(harnessResult.value, testCase.expected);
+  if (passed) {
+    return {
+      ...shared,
+      status: "passed",
+      ...(publicTest
+        ? {
+            expectedOutput: stringifyValue(testCase.expected),
+            actualOutput: stringifyValue(harnessResult.value),
+            stdout: truncate(harnessResult.stdout),
+          }
+        : {}),
+    };
+  }
+  return {
+    ...shared,
+    status: "failed",
+    ...(publicTest
+      ? {
+          expectedOutput: stringifyValue(testCase.expected),
+          actualOutput: stringifyValue(harnessResult.value),
+          stdout: truncate(harnessResult.stdout),
+          errorMessage: "The returned value did not match the expected result.",
+        }
+      : {}),
+  };
+}
+
+function overallStatus(tests: TestCaseResult[]): ExecutionResult["status"] {
+  if (tests.every((test) => test.status === "passed")) return "passed";
+  if (tests.some((test) => test.status === "time_limit_exceeded")) return "time_limit_exceeded";
+  if (tests.some((test) => test.status === "compilation_error")) return "compilation_error";
+  if (tests.some((test) => test.status === "runtime_error")) return "runtime_error";
+  if (tests.some((test) => test.status === "execution_error")) return "execution_error";
+  return "wrong_answer";
+}
+
+function createResult(mode: ExecutionMode, tests: TestCaseResult[], totalTests: number, errorMessage?: string): ExecutionResult {
+  const passedTests = tests.filter((test) => test.status === "passed").length;
+  const failedTests = totalTests - passedTests;
+  const allPassed = totalTests > 0 && passedTests === totalTests;
+  const status = errorMessage ? "execution_error" : overallStatus(tests);
+  return {
+    status,
+    summary: errorMessage ?? (allPassed ? `All ${totalTests} tests passed.` : `${passedTests} of ${totalTests} tests passed.`),
+    isMock: false,
+    completedAt: new Date().toISOString(),
+    tests,
+    totalTests,
+    passedTests,
+    failedTests,
+    allPassed,
+    mode,
+    ...(errorMessage ? { errorMessage } : {}),
+  };
+}
+
+export async function POST(request: Request) {
+  let rawBody: string;
+  try {
+    rawBody = await request.text();
+  } catch {
+    return errorResponse(400, "invalid_request", "The request body could not be read.");
+  }
+  if (Buffer.byteLength(rawBody, "utf8") > MAX_REQUEST_BYTES) {
+    return errorResponse(413, "request_too_large", "The execution request is too large.");
+  }
+
+  let body: unknown;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    return errorResponse(400, "invalid_json", "The request body must be valid JSON.");
+  }
+  if (!body || typeof body !== "object") {
+    return errorResponse(400, "invalid_request", "The request body must be an object.");
+  }
+
+  const requestBody = body as Record<string, unknown>;
+  const missionId = requestBody.missionId;
+  const sourceCode = requestBody.sourceCode;
+  const language = requestBody.language;
+  const mode = requestBody.mode;
+  if (typeof missionId !== "string" || !/^[a-z0-9-]+$/.test(missionId)) {
+    return errorResponse(400, "invalid_mission_id", "A valid mission ID is required.");
+  }
+  if (typeof sourceCode !== "string" || sourceCode.trim().length === 0) {
+    return errorResponse(400, "invalid_source_code", "Python source code is required.");
+  }
+  if (Buffer.byteLength(sourceCode, "utf8") > MAX_SOURCE_BYTES) {
+    return errorResponse(413, "source_too_large", "The Python source exceeds the allowed size.");
+  }
+  if (language !== "python") {
+    return errorResponse(400, "unsupported_language", "Only Python submissions are supported.");
+  }
+  if (mode !== "run" && mode !== "submit") {
+    return errorResponse(400, "invalid_mode", "Execution mode must be run or submit.");
+  }
+
+  const mission = getMission(missionId);
+  if (!mission) return errorResponse(404, "unknown_mission", "The requested mission was not found.");
+
+  let testCases: ServerTestCase[];
+  try {
+    testCases = getMissionTestCases(missionId, mode);
+  } catch {
+    return errorResponse(500, "missing_test_definition", "This mission is not configured for execution.");
+  }
+
+  const tests: TestCaseResult[] = [];
+  const startedAt = Date.now();
+  try {
+    for (const testCase of testCases) {
+      if (Date.now() - startedAt >= TOTAL_EXECUTION_TIMEOUT_MS) {
+        throw new Judge0ServiceError("The execution request exceeded its total time limit.", 504);
+      }
+      const harnessSource = buildPythonHarness(mission, testCase, sourceCode);
+      const judgeResult = await executePython(harnessSource);
+      tests.push(evaluateTest(testCase, judgeResult));
+    }
+  } catch (error) {
+    if (error instanceof Judge0ServiceError) {
+      return errorResponse(error.httpStatus, "execution_service_error", error.message);
+    }
+    return errorResponse(500, "execution_failed", "The execution request could not be completed.");
+  }
+
+  const executionResult = createResult(mode, tests, testCases.length);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const user = await getAuthenticatedUser(request);
+      if (user) {
+        const attempt = await persistMissionAttempt({
+          learnerId: user.id,
+          missionId,
+          mode,
+          executionStatus: executionResult.status,
+          passedTests: executionResult.passedTests,
+          totalTests: executionResult.totalTests,
+          allPassed: executionResult.allPassed,
+          mistakeCategory: executionResult.allPassed ? undefined : executionResult.status === "wrong_answer" ? "INCORRECT_LOGIC" : undefined,
+        });
+
+        if (!attempt.skipped) {
+          executionResult.attemptId = attempt.id;
+        }
+      }
+    } catch {
+      // Database outages should never be reported as a false execution success.
+    }
+  }
+
+  return NextResponse.json(executionResult);
+}

@@ -13,15 +13,15 @@ interface FallbackUniverseProps {
 }
 
 function FallbackUniverse({ interactionRef }: FallbackUniverseProps) {
-  return <div className="relative h-full w-full overflow-visible rounded-[2rem] border border-[#292929] bg-[#0a0a0a]">
-    <div ref={interactionRef} className="cq-interaction absolute inset-0">
+  return <div className="relative grid h-full w-full place-items-center overflow-hidden rounded-[2rem] border border-[#292929] bg-[#0a0a0a]">
+    <div ref={interactionRef} className="cq-interaction relative aspect-square w-[88%] max-w-[34rem]">
       <div className="cq-sphere-float absolute inset-0">
-        <div className="cq-orbit-forward absolute left-1/2 top-1/2 h-[58%] w-[94%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border border-[#737373]" />
-        <div className="cq-orbit-reverse absolute left-1/2 top-1/2 h-[44%] w-[76%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border border-[#404040]" />
-        <div className="cq-sphere-core absolute left-1/2 top-1/2 size-48 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#a3a3a3] bg-[#191919] shadow-[inset_18px_18px_0_#242424,inset_-18px_-18px_0_#050505,0_0_0_14px_#0d0d0d,0_24px_42px_rgba(0,0,0,.75)] sm:size-64"><span className="absolute left-[22%] top-[18%] size-10 rounded-full border border-white/70 bg-[#737373] shadow-[0_0_0_7px_#2a2a2a] sm:size-14" /><span className="absolute bottom-[20%] right-[16%] size-3 rounded-full bg-[#a3a3a3]" /></div>
+        <div className="cq-orbit-forward absolute left-1/2 top-1/2 h-[54%] w-[88%]"><div className="cq-orbit-forward-spin absolute inset-0 rounded-[50%] border border-[#737373]" /></div>
+        <div className="cq-orbit-reverse absolute left-1/2 top-1/2 h-[42%] w-[70%]"><div className="cq-orbit-reverse-spin absolute inset-0 rounded-[50%] border border-[#404040]" /></div>
+        <div className="cq-sphere-core absolute left-1/2 top-1/2 size-48 -translate-x-1/2 -translate-y-1/2 sm:size-64"><div className="cq-sphere-core-spin size-full rounded-full border border-[#a3a3a3] bg-[#191919] shadow-[inset_18px_18px_0_#242424,inset_-18px_-18px_0_#050505,0_0_0_14px_#0d0d0d,0_24px_42px_rgba(0,0,0,.75)]"><span className="absolute left-[22%] top-[18%] size-10 rounded-full border border-white/70 bg-[#737373] shadow-[0_0_0_7px_#2a2a2a] sm:size-14" /><span className="absolute bottom-[20%] right-[16%] size-3 rounded-full bg-[#a3a3a3]" /></div></div>
+        <span className="absolute left-[8%] top-[19%] size-1.5 rounded-full bg-[#a3a3a3]" /><span className="absolute right-[8%] top-[31%] size-1 rounded-full bg-white" /><span className="absolute bottom-[17%] left-[18%] size-1 rounded-full bg-[#737373]" />
       </div>
     </div>
-    <span className="absolute left-[18%] top-[19%] size-1.5 rounded-full bg-[#a3a3a3]" /><span className="absolute right-[18%] top-[31%] size-1 rounded-full bg-white" /><span className="absolute bottom-[17%] left-[28%] size-1 rounded-full bg-[#737373]" />
     <span className="absolute bottom-5 left-5 rounded-lg border border-[#292929] bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#737373]">scene fallback / ready</span>
   </div>;
 }

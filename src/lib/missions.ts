@@ -15,6 +15,7 @@ export const missions: Mission[] = [
     examples: [{ input: "2, 3", output: "5" }, { input: "-4, 9", output: "5" }],
     constraints: ["Inputs are integers.", "Return a single integer."],
     hints: { nudge: "What operation combines two numbers into one larger (or smaller) number?", approach: "The function already receives both values. Use one expression to combine them and return the result.", detailed: "Inside the function, write `return a + b`. The return statement sends the computed value back to the caller." },
+    execution: { functionName: "sum_two_numbers", parameters: [{ name: "a", type: "integer" }, { name: "b", type: "integer" }], returnType: "integer" },
   },
   {
     id: "even-or-odd",
@@ -30,6 +31,7 @@ export const missions: Mission[] = [
     examples: [{ input: "8", output: "Even" }, { input: "13", output: "Odd" }],
     constraints: ["The input is an integer.", "Use the exact strings `Even` and `Odd`."],
     hints: { nudge: "What value does the remainder have when an even number is divided by two?", approach: "Check whether the number modulo two equals zero, then choose between two return values.", detailed: "Use `if number % 2 == 0:` and return `Even`; the `else` branch returns `Odd`." },
+    execution: { functionName: "even_or_odd", parameters: [{ name: "number", type: "integer" }], returnType: "string" },
   },
   {
     id: "sum-from-one-to-n",
@@ -45,6 +47,7 @@ export const missions: Mission[] = [
     examples: [{ input: "5", output: "15" }, { input: "1", output: "1" }],
     constraints: ["n is a positive integer.", "The range includes n."],
     hints: { nudge: "Start with a total of zero. Which value should you add first?", approach: "Loop through the inclusive sequence and add each current number to `total`.", detailed: "`for number in range(1, n + 1):` includes n. Add `number` to total inside the loop, then return total." },
+    execution: { functionName: "sum_to_n", parameters: [{ name: "n", type: "integer" }], returnType: "integer" },
   },
   {
     id: "find-largest-number",
@@ -60,6 +63,7 @@ export const missions: Mission[] = [
     examples: [{ input: "[3, 8, 2, 5]", output: "8" }, { input: "[-4, -1, -7]", output: "-1" }],
     constraints: ["The list contains at least one integer.", "Do not change the input list."],
     hints: { nudge: "Keep one number as your current best, then compare every new number with it.", approach: "Initialize the largest candidate from the list, scan the remaining values, and replace it when a larger value appears.", detailed: "Set `largest = numbers[0]`. For each number, if it is greater than largest, assign it to largest. Return largest after the loop." },
+    execution: { functionName: "find_largest", parameters: [{ name: "numbers", type: "integer[]" }], returnType: "integer" },
   },
   {
     id: "count-vowels",
@@ -75,6 +79,7 @@ export const missions: Mission[] = [
     examples: [{ input: "CodeQuest", output: "3" }, { input: "rhythm", output: "0" }],
     constraints: ["Count a, e, i, o, and u.", "Uppercase vowels should count too."],
     hints: { nudge: "Can you make every character comparable using one consistent case?", approach: "Normalize the text, then increment a counter when a character is in a collection of vowels.", detailed: "Use `text.lower()` and check `if character in 'aeiou':`. Return count after visiting every character." },
+    execution: { functionName: "count_vowels", parameters: [{ name: "text", type: "string" }], returnType: "integer" },
   },
 ];
 

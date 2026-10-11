@@ -1,29 +1,19 @@
-// Test script for AI Mentor logic
-function classifyMistake(userCode, testResults) {
-  const failedTests = testResults.filter((t) => !t.passed);
-  if (failedTests.length === 0) return 'UNKNOWN_ERROR';
-  const combinedErrors = failedTests.map((t) => t.errorMessage || '').join('\n');
-  if (combinedErrors.includes('IndexError')) return 'OFF_BY_ONE';
-  return 'INCORRECT_LOGIC';
+// Manual smoke check for the canonical local mentor engine.
+import { processSubmissionAI } from "./aiMentor.js";
+
+const response = processSubmissionAI(
+  "def sum_two_numbers(a, b):\n    return a - b",
+  {
+    status: "wrong_answer",
+    allPassed: false,
+    tests: [{ id: "public-1", label: "visible example", status: "failed", expectedOutput: "5", actualOutput: "-1" }]
+  },
+  { id: "sum-of-two-numbers" },
+  1
+);
+
+if (response.category !== "INCORRECT_LOGIC" || response.hintLevel !== 1) {
+  throw new Error("Local mentor smoke check failed.");
 }
 
-function generateProgressiveHints(mistakeType) {
-  if (mistakeType === 'OFF_BY_ONE') {
-    return {
-      explanation: "Your code is trying to access an element beyond the list's boundary.",
-      level1: "💡 Hint 1: Remember that Python lists are zero-indexed! The first item is at index 0.",
-      level2: "🔍 Hint 2: Check your loop range up to len(lst) - 1.",
-      level3: "⚙️ Hint 3: Use `<` instead of `<=` in your loop condition."
-    };
-  }
-}
-
-// Mock Test
-const mockTestResults = [{ passed: false, errorMessage: 'IndexError: list index out of range' }];
-const mistake = classifyMistake("for i in range(len(lst)): print(lst[i])", mockTestResults);
-const hints = generateProgressiveHints(mistake);
-
-console.log("=== 🚀 AI MENTOR TEST OUTPUT ===");
-console.log("Detected Mistake:", mistake);
-console.log("Generated Hints:", hints);
-console.log("================================");
+console.log("Local mentor smoke check passed.");
