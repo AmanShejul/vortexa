@@ -25,7 +25,7 @@ export interface FunctionParameter {
 export interface FunctionExecutionContract {
   functionName: string;
   parameters: FunctionParameter[];
-  returnType: "integer" | "string";
+  returnType: "integer" | "integer | null" | "string" | "boolean";
 }
 
 export interface ExampleCase {

@@ -72,6 +72,29 @@ const missionTestSuites: Record<string, MissionTestSuite> = {
       { id: "hidden-2", label: "Private test 2", args: [""], expected: 0 },
     ],
   },
+  "two-sum": {
+    public: [
+      { id: "public-1", label: "Example 1", args: [[2, 7, 11, 15], 9], expected: true },
+      { id: "public-2", label: "Example 2", args: [[1, 2, 4], 8], expected: false },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [[3, 3, 8], 6], expected: true },
+      { id: "hidden-2", label: "Private test 2", args: [[3], 6], expected: false },
+      { id: "hidden-3", label: "Private test 3", args: [[-5, 2, 8, -1], 7], expected: true },
+      { id: "hidden-4", label: "Private test 4", args: [[], 0], expected: false },
+    ],
+  },
+  "second-largest-number": {
+    public: [
+      { id: "public-1", label: "Example 1", args: [[4, 1, 7, 3, 5]], expected: 5 },
+      { id: "public-2", label: "Example 2", args: [[9, 9, 7, 8]], expected: 8 },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [[-5, -2, -9]], expected: -5 },
+      { id: "hidden-2", label: "Private test 2", args: [[6, 6, 6]], expected: null },
+      { id: "hidden-3", label: "Private test 3", args: [[-1000000000]], expected: null },
+    ],
+  },
 };
 
 for (const mission of missions) {

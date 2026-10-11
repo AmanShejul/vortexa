@@ -84,6 +84,9 @@ export function AuthWidget() {
   }
 
   if (state.error) {
+    // When Supabase is not configured the widget stays invisible instead of
+    // leaking an infrastructure message into the nav.
+    if (state.error === "Supabase is not configured.") return null;
     return <div className="rounded-xl border border-[#737373] bg-[#101010] px-3 py-2 text-xs text-neutral-200">{state.error}</div>;
   }
 

@@ -1,4 +1,5 @@
 import { LearnerProgressDashboard } from "@/components/LearnerProgressDashboard";
+import { LocalPatternsSection } from "@/components/LocalPatternsSection";
 
 export default function DashboardPage() {
   return <main className="min-h-screen bg-[#080808] text-neutral-200">
@@ -8,6 +9,7 @@ export default function DashboardPage() {
         <h1 className="mt-3 text-4xl font-semibold tracking-[-0.06em] text-white sm:text-6xl">Your progress</h1>
       </div>
       <LearnerProgressDashboard />
+      <LocalPatternsSection />
     </div>
   </main>;
 }

@@ -6,7 +6,9 @@ import { CodeEditor } from "@/components/CodeEditor";
 import { MentorPanel } from "@/components/MentorPanel";
 import { TestResults } from "@/components/TestResults";
 import { executeMission } from "@/lib/execution-client";
+import { recordLocalAttempt } from "@/lib/learner-patterns";
 import { getBrowserAccessToken } from "@/lib/supabase";
+import { classifyMistake, generateProgressiveHints } from "../../yash/aiMentor.js";
 import type { LocalPythonPhase } from "@/lib/local-python";
 import type { ExecutionMode, ExecutionResult, ExecutionSource, HintSet, MentorResponse, Mission } from "@/types";
 
@@ -81,6 +83,14 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
       setResult(executionResult);
       setResultSource(submittedCode);
       setMentorEvidenceToken(executionResult.mentorEvidenceToken ?? null);
+      if (executionResult.executionSource === "local" && !executionResult.isSimulated) {
+        recordLocalAttempt({
+          missionId: mission.id,
+          category: String(classifyMistake(submittedCode, executionResult)),
+          concepts: mission.concepts,
+          passed: executionResult.allPassed,
+        });
+      }
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : "Execution could not be completed. Please try again.");
     } finally {
@@ -103,6 +113,28 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
 
     setHintLoading(true);
     setHintError(null);
+
+    // Local execution has no server-side evidence token, so diagnose the
+    // learner's code directly in the browser with the deterministic mentor
+    // engine. This mirrors the server-side /api/hint evidence path.
+    if (result.executionSource === "local" && !result.isSimulated) {
+      try {
+        const category = String(classifyMistake(code, result));
+        const guidance = generateProgressiveHints(category, { status: result.status });
+        const hintKey = `level${level}` as "level1" | "level2" | "level3";
+        const keys: Array<keyof HintSet> = ["nudge", "approach", "detailed"];
+        setMentorHints((current) => ({ ...current, [keys[level - 1]]: String(guidance[hintKey]) }));
+        setRevealedHintCount((current) => Math.max(current, level));
+        setHintCategory(category);
+        setHintExplanation(String(guidance.explanation));
+      } catch (error) {
+        setHintError(error instanceof Error ? error.message : "Mentor guidance could not be loaded. Try again.");
+      } finally {
+        setHintLoading(false);
+      }
+      return;
+    }
+
     try {
       const accessToken = await getBrowserAccessToken();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -196,7 +228,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
               {executionSource === "demo"
                 ? "Sample feedback is not executed against your code and cannot complete a mission."
                 : executionSource === "local"
-                  ? "Your code runs in a browser worker. Only public examples are checked; submit does not run hidden tests or save trusted progress."
+                  ? "Your code runs in a browser worker. Only public examples are checked; hidden tests stay on the server."
                   : "Your code will be sent to the configured Judge0 provider."}
             </p>
           </div>
