@@ -137,6 +137,31 @@ describe("POST /api/run progress integrity", () => {
     expect(mocks.persistMissionAttempt).toHaveBeenCalledWith(expect.objectContaining({
       executionStatus: "wrong_answer",
       allPassed: false,
+      mistakeCategory: "INCORRECT_LOGIC",
+    }));
+  });
+
+  it.each([
+    [5, "time_limit_exceeded"],
+    [6, "compilation_error"],
+    [11, "runtime_error"],
+  ] as const)("classifies Judge0 learner result %s without returning provider details", async (statusId, expectedStatus) => {
+    mocks.executePython.mockResolvedValue({
+      statusId,
+      statusDescription: "Provider detail should not be included",
+      stderr: "Private provider output",
+    });
+
+    const response = await POST(makeRequest("run"));
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result.status).toBe(expectedStatus);
+    expect(JSON.stringify(result)).not.toContain("Private provider output");
+    expect(mocks.persistMissionAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      executionStatus: expectedStatus,
+      allPassed: false,
+      mistakeCategory: undefined,
     }));
   });
 
@@ -192,6 +217,19 @@ describe("POST /api/run progress integrity", () => {
 
     expect(response.status).toBe(413);
     expect(result.error.code).toBe("request_too_large");
+    expect(mocks.executePython).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed JSON before execution", async () => {
+    const response = await POST(new Request("http://localhost/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"missionId":',
+    }));
+    const result = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(result.error.code).toBe("invalid_json");
     expect(mocks.executePython).not.toHaveBeenCalled();
   });
 

@@ -95,10 +95,12 @@ function isPublicTest(testCase: ServerTestCase): boolean {
   return testCase.id.startsWith("public-");
 }
 
-function formatFailureMessage(judgeResult: Judge0ExecutionResult, harnessResult: HarnessResult | null): string | undefined {
-  return truncate(
-    harnessResult?.errorMessage || judgeResult.compileOutput || judgeResult.stderr || judgeResult.message || judgeResult.statusDescription,
-  );
+function formatHarnessFailure(harnessResult: HarnessResult): string {
+  const errorType = harnessResult.errorType?.replace(/[^A-Za-z0-9_]/g, "").slice(0, 60);
+  if (errorType && harnessResult.errorMessage) {
+    return `${errorType}: ${truncate(harnessResult.errorMessage, 500)}`;
+  }
+  return "Your function raised an error while processing this test.";
 }
 
 function evaluateTest(testCase: ServerTestCase, judgeResult: Judge0ExecutionResult): TestCaseResult {
@@ -111,22 +113,26 @@ function evaluateTest(testCase: ServerTestCase, judgeResult: Judge0ExecutionResu
   };
 
   if (judgeResult.statusId === 5) {
-    return { ...shared, status: "time_limit_exceeded", ...(publicTest ? { stderr: truncate(judgeResult.stderr), errorMessage: "The test exceeded the execution time limit." } : {}) };
+    return { ...shared, status: "time_limit_exceeded", ...(publicTest ? { errorMessage: "Your code exceeded the test execution time limit." } : {}) };
   }
   if (judgeResult.statusId === 6) {
-    return { ...shared, status: "compilation_error", ...(publicTest ? { stderr: truncate(judgeResult.compileOutput || judgeResult.stderr), errorMessage: "Python could not compile this submission." } : {}) };
+    return { ...shared, status: "compilation_error", ...(publicTest ? { errorMessage: "Python could not compile this submission. Check the syntax in your function." } : {}) };
   }
   if (judgeResult.statusId === 13 || judgeResult.statusId === 14 || judgeResult.statusId < 3 || judgeResult.statusId > 14) {
     return { ...shared, status: "execution_error", ...(publicTest ? { errorMessage: "The execution service did not return a usable result." } : {}) };
   }
   if (judgeResult.statusId !== 3) {
-    return { ...shared, status: judgeResult.statusId === 4 ? "failed" : "runtime_error", ...(publicTest ? { stderr: truncate(judgeResult.stderr), errorMessage: formatFailureMessage(judgeResult, null) } : {}) };
+    const status = judgeResult.statusId === 4 ? "failed" : "runtime_error";
+    const errorMessage = status === "failed"
+      ? "The submitted code did not produce the expected result."
+      : "Your code stopped with a runtime error. Check the operations performed by the function.";
+    return { ...shared, status, ...(publicTest ? { errorMessage } : {}) };
   }
   if (!harnessResult) {
     return { ...shared, status: "execution_error", ...(publicTest ? { errorMessage: "The execution harness returned an invalid result." } : {}) };
   }
   if (!harnessResult.ok) {
-    return { ...shared, status: "runtime_error", ...(publicTest ? { errorMessage: formatFailureMessage(judgeResult, harnessResult) } : {}) };
+    return { ...shared, status: "runtime_error", ...(publicTest ? { errorMessage: formatHarnessFailure(harnessResult) } : {}) };
   }
 
   const passed = valuesEqual(harnessResult.value, testCase.expected);

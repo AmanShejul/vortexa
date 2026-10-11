@@ -22,9 +22,6 @@ export function getSafeExecutionError(status: number, payload: unknown): string 
   if (code === "judge0_authentication_failed") {
     return "Judge0 rejected its configured credentials. Check JUDGE0_API_KEY and the auth header settings in .env.local.";
   }
-  if (code === "judge0_request_rejected") {
-    return "Judge0 rejected the execution request. Check the endpoint and provider limits.";
-  }
   if (code === "judge0_provider_timeout" || code === "judge0_poll_timeout") {
     return "Judge0 took too long to respond. Please try again in a moment.";
   }

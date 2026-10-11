@@ -6,11 +6,20 @@ export type RunRateLimitIdentity = { kind: "learner"; userId: string } | { kind:
 
 export class InMemoryRunRateLimiter {
   private readonly events = new Map<string, number[]>();
+  private lastPrunedAt = 0;
 
   constructor(private readonly now: () => number = Date.now) {}
 
   consume(identity: RunRateLimitIdentity): { allowed: boolean; retryAfterSeconds: number } {
     const now = this.now();
+    if (now - this.lastPrunedAt >= WINDOW_MS) {
+      for (const [key, timestamps] of this.events) {
+        const recentTimestamps = timestamps.filter((timestamp) => now - timestamp < WINDOW_MS);
+        if (recentTimestamps.length === 0) this.events.delete(key);
+        else this.events.set(key, recentTimestamps);
+      }
+      this.lastPrunedAt = now;
+    }
     const key = identity.kind === "learner" ? `learner:${identity.userId}` : "anonymous:shared";
     const limit = identity.kind === "learner" ? AUTHENTICATED_LIMIT : ANONYMOUS_LIMIT;
     const recent = (this.events.get(key) ?? []).filter((timestamp) => now - timestamp < WINDOW_MS);

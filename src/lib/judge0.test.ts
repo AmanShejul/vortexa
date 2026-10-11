@@ -55,11 +55,33 @@ describe("Judge0 execution client", () => {
 
   it("classifies provider authentication failures without treating them as learner errors", async () => {
     vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>private detail</html>", { status: 401 })));
 
     await expect(executePython("print('hello')")).rejects.toMatchObject({
       code: "authentication_failed",
       httpStatus: 503,
+    } satisfies Partial<Judge0ServiceError>);
+  });
+
+  it("classifies provider outages without returning the provider response body", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("private upstream details", { status: 503 })));
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      code: "provider_internal_error",
+      httpStatus: 502,
+      message: "Code execution service encountered an internal error.",
+    } satisfies Partial<Judge0ServiceError>);
+  });
+
+  it("classifies network failures as provider unavailable", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("private network detail")));
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      code: "provider_unavailable",
+      httpStatus: 503,
+      message: "Code execution service is unavailable.",
     } satisfies Partial<Judge0ServiceError>);
   });
 
