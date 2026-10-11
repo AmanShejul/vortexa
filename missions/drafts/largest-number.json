@@ -1,0 +1,138 @@
+{
+  "draft_notice": {
+    "status": "PROVISIONAL",
+    "schema_status": "Not team-approved; temporary hand-authored JSON draft.",
+    "mission_id": "largest-number"
+  },
+  "title": "Largest of Three Numbers",
+  "problem_statement": "Read three integers and print the largest value. The values may be equal or negative. Solve this using comparisons rather than Python's built-in `max` function or sorting the inputs. Track the largest value seen so far and compare each remaining value against it. In a brief code comment, state the invariant your comparisons maintain: after processing some inputs, the tracked value is the largest among those processed.",
+  "difficulty": "Medium",
+  "concept_tags": [
+    "comparisons",
+    "conditionals",
+    "variables",
+    "reasoning"
+  ],
+  "constraints": [
+    "-1000000000 <= each input integer <= 1000000000"
+  ],
+  "input_format": "Three lines. Each line contains one integer.",
+  "output_format": "Print the largest of the three input integers as one integer, with no extra text.",
+  "starter_code": "def main():\n    first = int(input())\n    second = int(input())\n    third = int(input())\n\n    # TODO: Add a brief comment stating the invariant your comparisons maintain.\n    # TODO: Choose a value to track as the largest seen so far.\n    largest = first\n\n    # TODO: Compare the other two values with largest and update it when needed.\n\n    print(largest)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "public_samples": [
+    {
+      "id": "sample-1",
+      "input": "4\n9\n2\n",
+      "output": "9\n",
+      "explanation": "9 is greater than both 4 and 2."
+    },
+    {
+      "id": "sample-2",
+      "input": "-8\n-3\n-12\n",
+      "output": "-3\n",
+      "explanation": "-3 is the greatest value, even though all three values are negative."
+    },
+    {
+      "id": "sample-3",
+      "input": "6\n6\n6\n",
+      "output": "6\n",
+      "explanation": "All values are equal, so their largest value is 6."
+    },
+    {
+      "id": "sample-4",
+      "input": "-1000000000\n1000000000\n0\n",
+      "output": "1000000000\n",
+      "explanation": "The middle value is at the upper constraint boundary and is greater than the other two."
+    },
+    {
+      "id": "sample-5",
+      "input": "5\n12\n12\n",
+      "output": "12\n",
+      "explanation": "The largest value appears twice; either occurrence gives the same answer."
+    }
+  ],
+  "hints": [
+    "You need one value that represents the best candidate found so far.",
+    "Start by treating the first input as the current largest. Check each other input against it.",
+    "For each remaining number, replace the current largest only when that number is greater. After both comparisons, print the tracked value."
+  ],
+  "common_beginner_mistakes": [
+    "Comparing only the first and second inputs and forgetting to compare the third.",
+    "Initializing the largest value to 0, which fails when all three inputs are negative.",
+    "Updating the tracked largest value in only one of the needed comparisons.",
+    "Using `>=` incorrectly in a way that assigns a smaller value, or reversing the comparison operands.",
+    "Assuming the inputs arrive in sorted order.",
+    "Failing to test equal values, even though equality must still produce the correct largest value."
+  ],
+  "completion_criteria": [
+    "Reads exactly three integers, one per line.",
+    "Uses comparisons, not `max` or sorting, and includes a brief comment explaining the invariant that the tracked value is largest among the inputs processed so far.",
+    "Handles any input order, negative numbers, ties, all-equal values, and the stated boundary values.",
+    "Prints only the largest integer.",
+    "Passes all public samples and separately maintained private tests."
+  ],
+  "private_tests": {
+    "status": "Placeholder only; actual private cases are not included.",
+    "specification": "In approved private storage, cover each input position holding the unique maximum, all-equal and pairwise-tie cases, all-negative inputs, mixed signs, and values at both constraint boundaries. Do not place private inputs or expected outputs in this public mission file."
+  },
+  "qa": {
+    "checklist": [
+      {
+        "check": "Draft is marked provisional and not team-approved.",
+        "status": "passed"
+      },
+      {
+        "check": "Three-line input, comparison-only requirement, constraints, and starter behavior are consistent.",
+        "status": "passed"
+      },
+      {
+        "check": "Public samples cover ordinary values, negatives, ties, and constraint boundaries.",
+        "status": "passed"
+      },
+      {
+        "check": "All public sample expected outputs are independently verified.",
+        "status": "passed"
+      },
+      {
+        "check": "At least five relevant beginner mistakes and three progressive hints are included.",
+        "status": "passed"
+      },
+      {
+        "check": "No private test inputs or expected outputs are stored in this public draft.",
+        "status": "passed"
+      }
+    ],
+    "public_sample_results": [
+      {
+        "sample_id": "sample-1",
+        "expected_output": "9\n",
+        "actual_output": "9\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-2",
+        "expected_output": "-3\n",
+        "actual_output": "-3\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-3",
+        "expected_output": "6\n",
+        "actual_output": "6\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-4",
+        "expected_output": "1000000000\n",
+        "actual_output": "1000000000\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-5",
+        "expected_output": "12\n",
+        "actual_output": "12\n",
+        "status": "passed"
+      }
+    ]
+  }
+}

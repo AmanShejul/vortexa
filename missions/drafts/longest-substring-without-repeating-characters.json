@@ -1,0 +1,157 @@
+{
+  "draft_notice": {
+    "status": "PROVISIONAL",
+    "schema_status": "Not team-approved; temporary hand-authored JSON draft.",
+    "mission_id": "longest-substring-without-repeating-characters"
+  },
+  "title": "Longest Substring Without Repeating Characters",
+  "problem_statement": "Read one line of text and print the length of its longest contiguous substring in which every character appears at most once. Character comparisons are case-sensitive, and spaces count as characters. An empty line represents the empty string, whose answer is 0.",
+  "difficulty": "Hard",
+  "concept_tags": [
+    "strings",
+    "sliding-window",
+    "set",
+    "hash-map",
+    "algorithmic-efficiency"
+  ],
+  "constraints": [
+    "The input string contains between 0 and 100000 printable ASCII characters, inclusive.",
+    "The string may contain spaces and is case-sensitive.",
+    "The string contains no line-break characters."
+  ],
+  "input_format": "Exactly one line containing the input string. The line may be empty; an empty line (a newline with no characters before it) represents the empty string. Spaces on the line are part of the string and must not be discarded.",
+  "output_format": "Print one integer: the maximum length, measured in characters, of a contiguous substring with no repeated character. Print 0 for an empty string. Do not print extra text.",
+  "starter_code": "def main():\n    text = input()\n\n    # TODO: Set up data structures and boundaries for a current substring.\n    left = 0\n    longest = 0\n\n    # TODO: Visit each character and keep the current substring free of repeats.\n    # TODO: Update longest with the size of each valid substring.\n\n    print(longest)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "public_samples": [
+    {
+      "id": "sample-1",
+      "input": "abcabcbb\n",
+      "output": "3\n",
+      "explanation": "The longest valid substrings include `abc`, `bca`, and `cab`, each of length 3."
+    },
+    {
+      "id": "sample-2",
+      "input": "bbbbb\n",
+      "output": "1\n",
+      "explanation": "Every character is the same, so any valid substring has length at most 1."
+    },
+    {
+      "id": "sample-3",
+      "input": "pWw\n",
+      "output": "3\n",
+      "explanation": "Uppercase `W` and lowercase `w` are different characters, so the whole string has no repeats."
+    },
+    {
+      "id": "sample-4",
+      "input": "\n",
+      "output": "0\n",
+      "explanation": "The empty line represents an empty string, which has no characters."
+    },
+    {
+      "id": "sample-5",
+      "input": "ab ca\n",
+      "output": "4\n",
+      "explanation": "The substring `b ca` has four distinct characters; the full string repeats `a`."
+    }
+  ],
+  "hints": [
+    "A substring must be contiguous. Try thinking about a stretch of the string that contains no repeated characters.",
+    "As you scan from left to right, keep track of the start and end of a currently valid stretch. When a repeated character appears, the start may need to move forward.",
+    "A set can help detect characters in the current window, or a map can record each character's most recent index. Move the left boundary past an in-window repeat, and update the best length as you scan. Aim to process each character only a constant number of times."
+  ],
+  "common_beginner_mistakes": [
+    "Searching for the longest subsequence rather than a substring; a substring must use adjacent positions.",
+    "Counting distinct characters in the whole string, even when their positions do not form one contiguous repeat-free segment.",
+    "Moving the window's left boundary backward when a repeated character was already outside the current window.",
+    "Moving the left boundary to the most recent duplicate's index instead of one position after it.",
+    "Resetting the whole window at every duplicate, which can miss a longer valid substring that begins inside the previous window.",
+    "Treating uppercase and lowercase letters as the same even though this mission defines comparisons as case-sensitive.",
+    "Removing spaces from input or not counting spaces as characters.",
+    "Using a nested search over all substrings, which can take quadratic time and is unsuitable for the maximum input length."
+  ],
+  "completion_criteria": [
+    "Reads exactly one input line and preserves spaces; an empty line is accepted as the empty string.",
+    "Computes the length of the longest contiguous substring with all characters distinct.",
+    "Treats uppercase and lowercase characters as different and counts spaces as characters.",
+    "Handles empty input, repeated characters, and strings with no repeats.",
+    "Uses a sliding-window approach with a set or last-seen-index map to achieve O(n) expected time, rather than checking every substring.",
+    "Prints only the resulting integer.",
+    "Passes all public samples and separately maintained private tests."
+  ],
+  "private_tests": {
+    "status": "Placeholder only; actual private cases are not included.",
+    "specification": "In approved private storage, cover empty and one-character strings, all-identical characters, all-distinct characters, repeats at the current window boundary and outside it, mixed case, spaces, and a long input near the 100000-character limit. Do not place private inputs or expected outputs in this public mission file."
+  },
+  "qa": {
+    "checklist": [
+      {
+        "check": "Draft is marked provisional and not team-approved.",
+        "status": "passed"
+      },
+      {
+        "check": "Input format precisely defines the empty string as one blank line and states that spaces count.",
+        "status": "passed"
+      },
+      {
+        "check": "Constraints, case sensitivity, output, and starter input parsing agree with the problem statement.",
+        "status": "passed"
+      },
+      {
+        "check": "Public samples cover ordinary, repeated, mixed-case, empty, and whitespace-containing inputs.",
+        "status": "passed"
+      },
+      {
+        "check": "All public sample expected outputs are independently verified.",
+        "status": "passed"
+      },
+      {
+        "check": "Hints progress from concept to data-structure guidance without giving a complete implementation.",
+        "status": "passed"
+      },
+      {
+        "check": "The intended sliding-window algorithm is O(n) expected time and suitable for the stated limit.",
+        "status": "passed"
+      },
+      {
+        "check": "At least five relevant beginner mistakes are included.",
+        "status": "passed"
+      },
+      {
+        "check": "No private test inputs or expected outputs are stored in this public draft.",
+        "status": "passed"
+      }
+    ],
+    "public_sample_results": [
+      {
+        "sample_id": "sample-1",
+        "expected_output": "3\n",
+        "actual_output": "3\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-2",
+        "expected_output": "1\n",
+        "actual_output": "1\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-3",
+        "expected_output": "3\n",
+        "actual_output": "3\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-4",
+        "expected_output": "0\n",
+        "actual_output": "0\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-5",
+        "expected_output": "4\n",
+        "actual_output": "4\n",
+        "status": "passed"
+      }
+    ]
+  }
+}

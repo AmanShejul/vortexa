@@ -1,0 +1,94 @@
+{
+  "draft_notice": {
+    "status": "PROVISIONAL",
+    "schema_status": "Not team-approved; temporary hand-authored JSON draft.",
+    "mission_id": "sum-two-numbers"
+  },
+  "title": "Sum Two Numbers",
+  "problem_statement": "Read two integers and print their sum. For example, if the numbers are 3 and 5, print 8.",
+  "difficulty": "Beginner",
+  "concept_tags": [
+    "input-output",
+    "integers",
+    "variables",
+    "addition"
+  ],
+  "constraints": [
+    "-1000000000 <= first number <= 1000000000",
+    "-1000000000 <= second number <= 1000000000"
+  ],
+  "input_format": "Two lines. Each line contains one integer.",
+  "output_format": "Print one integer: the sum of the two input integers. Do not print labels or extra text.",
+  "starter_code": "def main():\n    # TODO: Read two integers, one from each input line.\n    first = int(input())\n    second = int(input())\n\n    # TODO: Replace 0 with the sum of the two numbers.\n    answer = 0\n    print(answer)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "public_samples": [
+    {
+      "id": "sample-1",
+      "input": "3\n5\n",
+      "output": "8\n",
+      "explanation": "3 + 5 = 8."
+    },
+    {
+      "id": "sample-2",
+      "input": "-4\n9\n",
+      "output": "5\n",
+      "explanation": "-4 + 9 = 5."
+    }
+  ],
+  "hints": [
+    "The input gives you two values as text, one on each line. Python can convert each value to an integer.",
+    "Keep the two integers in separate variables. The plus operator adds integer values.",
+    "Use the plus operator on both variables, then print the resulting integer."
+  ],
+  "common_beginner_mistakes": [
+    "Adding the input strings before converting them to integers, which can join the text instead of adding the values.",
+    "Reading both values from one line even though the input format puts them on separate lines.",
+    "Printing a label or explanation when the expected output is only the sum.",
+    "Using subtraction or multiplication instead of addition.",
+    "Adding only one of the input values or accidentally using the same variable twice.",
+    "Forgetting to print the calculated answer."
+  ],
+  "completion_criteria": [
+    "Reads both input lines and treats their contents as integers.",
+    "Prints their sum, including when one or both values are negative or zero.",
+    "Prints no extra text.",
+    "Passes the public samples and the separately maintained private tests."
+  ],
+  "private_tests": {
+    "status": "Not included in this public repository draft.",
+    "reason": "The repository is public and has no approved private-test storage. Adding hidden cases here would make them publicly accessible."
+  },
+  "qa": {
+    "checklist": [
+      {
+        "check": "Draft is clearly marked provisional and not team-approved.",
+        "status": "passed"
+      },
+      {
+        "check": "JSON structure parses and includes the title, statement, difficulty, tags, constraints, input/output formats, Python starter, samples, hints, mistakes, and completion criteria.",
+        "status": "passed"
+      },
+      {
+        "check": "Both public sample expected outputs are verified.",
+        "status": "passed"
+      },
+      {
+        "check": "No private test inputs or expected outputs are stored in this public draft.",
+        "status": "passed"
+      }
+    ],
+    "public_sample_results": [
+      {
+        "sample_id": "sample-1",
+        "expected_output": "8\n",
+        "actual_output": "8\n",
+        "status": "passed"
+      },
+      {
+        "sample_id": "sample-2",
+        "expected_output": "5\n",
+        "actual_output": "5\n",
+        "status": "passed"
+      }
+    ]
+  }
+}
