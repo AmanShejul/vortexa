@@ -1,69 +1,32 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Navbar } from "@/components/Navbar";
+import { SectionLabel } from "@/components/SectionLabel";
+import { SplineScene } from "@/components/SplineScene";
+import { missions } from "@/lib/missions";
+
+const features = [["01", "Guided missions", "Short challenges with clear goals, starter code, and examples."], ["02", "Progressive hints", "A nudge before an approach. Detailed guidance only when you ask."], ["03", "Mistake DNA", "A typed readiness layer for recurring patterns and edge cases."], ["04", "Adaptive path", "A flexible foundation for recommendations based on real attempts."]] as const;
+const steps = [["01", "Choose a mission", "Start with a focused challenge shaped around the concept you want to understand."], ["02", "Write code and test your thinking", "Work in small loops with feedback that keeps you moving forward."], ["03", "Understand mistakes and improve", "Turn each wrong answer into a pattern you will recognize next time."]] as const;
 
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+  const previewMissions = missions.slice(0, 3);
+  return <div className="overflow-hidden bg-[#080808] text-neutral-200">
+    <Navbar />
+    <main>
+      <section className="relative isolate mx-auto min-h-[760px] w-full max-w-[1440px] px-5 pb-20 pt-36 sm:px-10 lg:px-16">
+        <div className="grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-4">
+          <div className="relative z-10 max-w-xl"><SectionLabel>CodeQuest AI · coding mentor</SectionLabel><h1 className="max-w-[680px] text-[clamp(3.6rem,8vw,7.4rem)] font-semibold leading-[0.94] tracking-[-0.08em] text-white">Level up your <span className="text-neutral-400">coding skills.</span></h1><p className="mt-7 max-w-lg text-base leading-8 text-neutral-400 sm:text-lg">Practice real coding challenges, learn from your mistakes, and build stronger problem-solving skills with a mentor that helps you think.</p><div className="mt-9 flex flex-wrap items-center gap-3"><Link href="/missions" className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-neutral-200">Start coding <span aria-hidden="true">↗</span></Link><Link href="#missions-preview" className="rounded-xl border border-[#404040] bg-black px-5 py-3 text-sm font-semibold text-white transition hover:border-[#737373] hover:bg-[#101010]">Explore missions <span aria-hidden="true">↓</span></Link></div><div className="mt-12 flex items-center gap-3 text-xs text-neutral-500"><span className="flex -space-x-1"><span className="size-5 rounded-full border-2 border-[#080808] bg-[#737373]" /><span className="size-5 rounded-full border-2 border-[#080808] bg-[#404040]" /><span className="size-5 rounded-full border-2 border-[#080808] bg-[#a3a3a3]" /></span><span>Built for curious beginners</span><span className="text-neutral-700">/</span><span>Start with one mission</span></div></div>
+          <div className="relative mx-auto flex h-[420px] w-full max-w-[660px] items-center justify-center sm:h-[540px] lg:h-[610px]"><div className="h-[92%] w-full"> <SplineScene /></div><div className="absolute bottom-0 left-4 rounded-xl border border-[#292929] bg-[#101010]/90 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-500">01 / learn by solving</div></div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+      </section>
+
+      <section id="features" className="border-y border-[#292929] bg-[#101010] px-5 py-24 sm:px-10 lg:px-16"><div className="mx-auto max-w-[1180px]"><div className="grid gap-12 md:grid-cols-[0.85fr_1.15fr] md:items-end"><div><SectionLabel>Why CodeQuest</SectionLabel><h2 className="max-w-md text-4xl font-semibold leading-[1.02] tracking-[-0.06em] text-white sm:text-6xl">The right hint at the right <span className="text-neutral-400">moment.</span></h2></div><p className="max-w-md text-sm leading-7 text-neutral-400 md:justify-self-end">CodeQuest turns every attempt into a clearer mental model. Build the instinct behind the syntax with a focused, friendly practice loop.</p></div><div className="mt-16 grid gap-px overflow-hidden rounded-2xl border border-[#292929] bg-[#292929] sm:grid-cols-2 lg:grid-cols-4">{features.map(([number, title, text]) => <article key={number} className="min-h-52 bg-[#101010] p-6 transition hover:bg-[#161616]"><span className="font-mono text-xs text-neutral-500">{number}</span><h3 className="mt-12 text-lg font-semibold text-white">{title}</h3><p className="mt-2 text-sm leading-6 text-neutral-500">{text}</p></article>)}</div></div></section>
+
+      <section id="how-it-works" className="mx-auto max-w-[1180px] px-5 py-28 sm:px-10 lg:px-0"><div className="grid gap-14 lg:grid-cols-[0.7fr_1.3fr]"><div><SectionLabel>How it works</SectionLabel><h2 className="max-w-md text-4xl font-semibold leading-[1.02] tracking-[-0.06em] text-white sm:text-6xl">Practice is a <span className="text-neutral-400">system.</span></h2></div><div className="divide-y divide-[#292929] border-y border-[#292929]">{steps.map(([number, title, text]) => <div key={number} className="grid gap-5 py-7 sm:grid-cols-[70px_1fr] sm:gap-8"><span className="font-mono text-xs text-neutral-500">{number}</span><div><h3 className="text-xl font-semibold text-white">{title}</h3><p className="mt-2 max-w-lg text-sm leading-6 text-neutral-500">{text}</p></div></div>)}</div></div></section>
+
+      <section id="missions-preview" className="border-y border-[#292929] bg-[#101010] px-5 py-24 sm:px-10 lg:px-16"><div className="mx-auto max-w-[1180px]"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><SectionLabel>Beginner missions</SectionLabel><h2 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">Start with something <span className="text-neutral-400">small.</span></h2></div><Link href="/missions" className="text-sm font-semibold text-white transition hover:text-neutral-400">View all missions ↗</Link></div><div className="mt-12 grid gap-4 md:grid-cols-3">{previewMissions.map((mission, index) => <Link key={mission.id} href={`/arena/${mission.id}`} className="group rounded-2xl border border-[#292929] bg-[#080808] p-5 transition hover:-translate-y-1 hover:border-[#737373]"><div className="flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-[0.16em] text-neutral-500">0{index + 1} / {mission.category}</span><span className="text-neutral-500 transition group-hover:text-white">↗</span></div><h3 className="mt-16 text-xl font-semibold text-white">{mission.title}</h3><p className="mt-2 text-sm leading-6 text-neutral-500">{mission.shortDescription}</p><div className="mt-6 flex gap-2 text-[10px] text-neutral-500"><span>{mission.difficulty}</span><span>·</span><span>{mission.durationMinutes} min</span></div></Link>)}</div></div></section>
+
+      <section className="mx-auto max-w-[1180px] px-5 py-28 text-center sm:px-10 lg:px-0"><SectionLabel>Ready when you are</SectionLabel><h2 className="mx-auto max-w-3xl text-5xl font-semibold leading-[0.98] tracking-[-0.07em] text-white sm:text-7xl">Your next breakthrough starts with <span className="text-neutral-400">one line.</span></h2><p className="mx-auto mt-6 max-w-md text-sm leading-7 text-neutral-500">No perfect setup required. Just an honest attempt and a place to begin.</p><Link href="/missions" className="mt-9 inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-neutral-200">Start coding <span className="ml-3" aria-hidden="true">↗</span></Link></section>
+    </main>
+    <footer className="border-t border-[#292929] px-5 py-8 sm:px-10 lg:px-16"><div className="mx-auto flex max-w-[1180px] flex-col justify-between gap-4 text-xs text-neutral-500 sm:flex-row sm:items-center"><span className="font-semibold text-white">CodeQuest <span className="text-neutral-400">AI</span></span><div className="flex gap-5"><Link href="/missions" className="transition hover:text-white">Missions</Link><Link href="#features" className="transition hover:text-white">Features</Link><Link href="#how-it-works" className="transition hover:text-white">How it works</Link></div><span className="font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-600">Learn by solving.</span></div></footer>
+  </div>;
 }

@@ -1,26 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #080808;
+  --foreground: #ffffff;
+  --surface: #101010;
+  --surface-raised: #161616;
+  --muted: #a3a3a3;
+  --subtle: #737373;
+  --line: #292929;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { min-width: 320px; margin: 0; background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
+a { color: inherit; text-decoration: none; }
+button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+a.bg-white, button.bg-white { color: #000 !important; }
+a.bg-white:hover, button.bg-white:hover, a.bg-white:focus-visible, button.bg-white:focus-visible { color: #000 !important; }
+a.bg-black, button.bg-black { color: #fff !important; }
+a.bg-black:hover, button.bg-black:hover, a.bg-black:focus-visible, button.bg-black:focus-visible { color: #fff !important; }
+button.bg-white:disabled { background: #292929 !important; color: #737373 !important; }
+::selection { background: #fff; color: #000; }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes cq-core-spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes cq-orbit-forward { from { transform: translate(calc(-50% + var(--cq-depth-x, 0px)), calc(-50% + var(--cq-depth-y, 0px))) rotate(0deg) scaleY(.38); } to { transform: translate(calc(-50% + var(--cq-depth-x, 0px)), calc(-50% + var(--cq-depth-y, 0px))) rotate(360deg) scaleY(.38); } }
+@keyframes cq-orbit-reverse { from { transform: translate(calc(-50% - var(--cq-depth-x, 0px)), calc(-50% - var(--cq-depth-y, 0px))) rotate(360deg) scaleY(.58); } to { transform: translate(calc(-50% - var(--cq-depth-x, 0px)), calc(-50% - var(--cq-depth-y, 0px))) rotate(0deg) scaleY(.58); } }
+@keyframes cq-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.cq-interaction { transform: translate3d(var(--cq-shift-x, 0px), var(--cq-shift-y, 0px), 0) rotateX(var(--cq-tilt-y, 0deg)) rotateY(var(--cq-tilt-x, 0deg)); transform-style: preserve-3d; will-change: transform; }
+.cq-sphere-float { animation: cq-float 7s ease-in-out infinite; }
+.cq-sphere-core { animation: cq-core-spin 24s linear infinite; transform-origin: center; }
+.cq-orbit-forward { --cq-depth-x: calc(var(--cq-shift-x, 0px) * .35); --cq-depth-y: calc(var(--cq-shift-y, 0px) * .35); }
+.cq-orbit-reverse { --cq-depth-x: calc(var(--cq-shift-x, 0px) * .65); --cq-depth-y: calc(var(--cq-shift-y, 0px) * .65); }
+.cq-orbit-forward { animation: cq-orbit-forward 18s linear infinite; transform-origin: center; }
+.cq-orbit-reverse { animation: cq-orbit-reverse 27s linear infinite; transform-origin: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  .cq-sphere-float, .cq-sphere-core, .cq-orbit-forward, .cq-orbit-reverse { animation: none !important; }
 }
