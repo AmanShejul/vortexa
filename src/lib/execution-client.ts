@@ -25,6 +25,15 @@ export function getSafeExecutionError(status: number, payload: unknown): string 
   if (code === "judge0_authentication_failed") {
     return "Judge0 rejected its configured credentials. Check JUDGE0_API_KEY and the auth header settings in .env.local.";
   }
+  if (code === "judge0_provider_rate_limited") {
+    return "Judge0 rate limits or daily quotas were reached. Wait and try again, or use a different/self-hosted Judge0 instance.";
+  }
+  if (code === "judge0_provider_overloaded") {
+    return "Judge0 is queueing too many submissions right now. Wait a moment and try again; Local Python remains available.";
+  }
+  if (code === "judge0_provider_unavailable") {
+    return "Live Judge0 execution is unavailable because the Next.js server could not reach Judge0. Check server-side HTTPS/DNS access and restart Next.js after changing .env.local. Local Python remains available.";
+  }
   if (code === "judge0_provider_timeout" || code === "judge0_poll_timeout") {
     return "Judge0 took too long to respond. Please try again in a moment.";
   }
@@ -151,8 +160,14 @@ export async function executeMission(
   mode: ExecutionMode,
   executionSource: ExecutionSource = "local",
   onLocalStatus?: (phase: LocalPythonPhase) => void,
+  submissionId?: string,
 ): Promise<ExecutionResult> {
-  if (executionSource === "local") {
+  // Local Python is intentionally kept for fast public-example runs. A
+  // submission must always use the trusted server path when it exists so
+  // public examples cannot be mistaken for a completed mission.
+  const resolvedExecutionSource: ExecutionSource = mode === "submit" ? "live" : executionSource;
+
+  if (resolvedExecutionSource === "local") {
     return executeLocalMission(missionId, sourceCode, mode, onLocalStatus);
   }
 
@@ -167,7 +182,7 @@ export async function executeMission(
     const response = await fetch("/api/run", {
       method: "POST",
       headers,
-      body: JSON.stringify({ missionId, sourceCode, language: "python", mode, executionSource }),
+      body: JSON.stringify({ missionId, sourceCode, language: "python", mode, executionSource: resolvedExecutionSource, submissionId }),
       signal: controller.signal,
     });
 
@@ -180,7 +195,7 @@ export async function executeMission(
       || typeof payload !== "object"
       || !("status" in payload)
       || !("executionSource" in payload)
-      || payload.executionSource !== executionSource
+      || payload.executionSource !== resolvedExecutionSource
       || !("executionScope" in payload)
       || (payload.executionScope !== "public_tests_only"
         && payload.executionScope !== "full_suite")

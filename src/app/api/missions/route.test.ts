@@ -19,4 +19,16 @@ describe("GET /api/missions", () => {
     expect(JSON.stringify(payload)).not.toContain("Private test");
     expect(JSON.stringify(payload)).not.toContain("hidden-1");
   });
+
+  it("includes the newly authored missions with their public metadata", async () => {
+    const response = GET();
+    const payload = await response.json();
+    const byId = new Map(payload.missions.map((mission: { id: string }) => [mission.id, mission]));
+
+    expect(byId.has("factorial-number")).toBe(true);
+    expect(byId.has("palindrome-check")).toBe(true);
+    expect(byId.has("reverse-string")).toBe(true);
+    expect(byId.has("largest-of-three")).toBe(true);
+    expect(byId.get("longest-substring")).toMatchObject({ difficulty: "Advanced", category: "Strings" });
+  });
 });

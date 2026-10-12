@@ -3,6 +3,7 @@ import { generateGeneralMissionHints, generateMissionRelevantHints } from "../..
 import { getMission } from "@/lib/missions";
 import { createMentorEvidenceToken, isMentorEvidenceSigningAvailable, verifyMentorEvidenceToken } from "@/lib/mentor-evidence";
 import { getAuthenticatedUser, isSupabaseConfigured } from "@/lib/supabase";
+import { getProgressSummary } from "@/lib/learner-persistence";
 import { consumeRunRateLimit } from "@/lib/run-rate-limit";
 import type { ExecutionMode } from "@/types";
 
@@ -122,11 +123,23 @@ export async function POST(request: Request) {
     return errorResponse("This execution did not provide enough reliable evidence for a learner hint. Try running your code again.", 422);
   }
 
+  let recurringNote = "";
+  if (userId) {
+    try {
+      const progress = await getProgressSummary(userId);
+      const recurringPattern = progress?.mistakePatterns.find((pattern) => pattern.category === evidence.category && pattern.isRecurring);
+      if (recurringPattern) {
+        recurringNote = ` This pattern has appeared in ${recurringPattern.occurrences} recorded attempts, so revisit the underlying concept deliberately.`;
+      }
+    } catch {
+      // Learner analytics are supplementary; a persistence outage must not block a trusted hint.
+    }
+  }
   const guidance = generateMissionRelevantHints(evidence.category, { status: evidence.status }, getMission(missionId));
   const hintKey = `level${hintLevel}` as "level1" | "level2" | "level3";
   return NextResponse.json({
     category: evidence.category,
-    explanation: guidance.explanation,
+    explanation: `${guidance.explanation}${recurringNote}`,
     hint: guidance[hintKey],
     hintLevel,
     isFallback: true,

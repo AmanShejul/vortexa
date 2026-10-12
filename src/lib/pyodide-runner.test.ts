@@ -15,6 +15,10 @@ interface PyodideRunnerSmokeResults {
   runtime: { allPassed: boolean; tests: Array<{ status: string; stderr?: string }> };
   additionalMissions: Array<{ allPassed: boolean; tests: Array<{ status: string }> }>;
   stdinStdout: { allPassed: boolean; tests: Array<{ status: string; expectedOutput?: string; actualOutput?: string }> };
+  sumOfTwoNumbers: {
+    hardcoded: { allPassed: boolean; tests: Array<{ status: string }> };
+    correct: { allPassed: boolean; tests: Array<{ status: string }> };
+  };
   canonicalMissions: Array<{ id: string; allPassed: boolean; tests: Array<{ status: string }> }>;
 }
 
@@ -29,6 +33,31 @@ const missionSolutions: Record<string, string> = {
     return max(numbers)`,
   "count-vowels": `def count_vowels(text):
     return sum(char.lower() in 'aeiou' for char in text)`,
+  "factorial-number": `def factorial(n):
+    result = 1
+    for value in range(2, n + 1): result *= value
+    return result`,
+  "palindrome-check": `def is_palindrome(text):
+    lowered = text.lower()
+    return lowered == lowered[::-1]`,
+  "reverse-string": `def reverse_string(text):
+    return text[::-1]`,
+  "largest-of-three": `def largest_of_three(a, b, c):
+    largest = a
+    if b > largest: largest = b
+    if c > largest: largest = c
+    return largest`,
+  "longest-substring": `def longest_substring(text):
+    left = 0
+    longest = 0
+    seen = set()
+    for right, char in enumerate(text):
+        while char in seen:
+            seen.remove(text[left])
+            left += 1
+        seen.add(char)
+        longest = max(longest, right - left + 1)
+    return longest`,
   "two-sum": `def has_two_sum(nums, target):
     seen = set()
     for value in nums:
@@ -181,12 +210,26 @@ const stdinStdout = await executePublicPythonTests(
   { kind: "stdin_stdout" },
   [{ id: "public-1", label: "Public input", stdin: "red\\nblue\\n", expectedStdout: "2\\n" }],
 );
+const sumOfTwoNumbersCases = ${JSON.stringify(getMissionTestCases("sum-of-two-numbers", "submit"))};
+const sumOfTwoNumbers = { kind: "function", functionName: "sum_two_numbers", parameters: [{ name: "a", type: "integer" }, { name: "b", type: "integer" }], returnType: "integer" };
+const sumOfTwoNumbersHardcoded = await executePublicPythonTests(
+  pyodide,
+  ["def sum_two_numbers(a, b):", "    return 1 + 4"].join("\\n"),
+  sumOfTwoNumbers,
+  sumOfTwoNumbersCases,
+);
+const sumOfTwoNumbersCorrect = await executePublicPythonTests(
+  pyodide,
+  ["def sum_two_numbers(a, b):", "    return a + b"].join("\\n"),
+  sumOfTwoNumbers,
+  sumOfTwoNumbersCases,
+);
 const canonicalMissions = [];
 for (const mission of ${JSON.stringify(canonicalMissionCases)}) {
   const result = await executePublicPythonTests(pyodide, mission.sourceCode, mission.execution, mission.tests);
   canonicalMissions.push({ id: mission.id, allPassed: result.allPassed, tests: result.tests });
 }
-console.log(JSON.stringify({ outputAndLoops, syntax, runtime, additionalMissions, stdinStdout, canonicalMissions }));
+console.log(JSON.stringify({ outputAndLoops, syntax, runtime, additionalMissions, stdinStdout, sumOfTwoNumbers: { hardcoded: sumOfTwoNumbersHardcoded, correct: sumOfTwoNumbersCorrect }, canonicalMissions }));
 pyodide.globals.destroy();
 `;
 
@@ -246,6 +289,15 @@ describe("real Pyodide public-test execution", () => {
       expectedOutput: "2\n",
       actualOutput: "2\n",
     });
+  });
+
+  it("rejects a hardcoded Sum of Two Numbers answer across the full suite", () => {
+    const result = getSmokeResults().sumOfTwoNumbers;
+
+    expect(result.hardcoded.allPassed).toBe(false);
+    expect(result.hardcoded.tests.some((test) => test.status === "failed")).toBe(true);
+    expect(result.correct.allPassed).toBe(true);
+    expect(result.correct.tests.every((test) => test.status === "passed")).toBe(true);
   });
 
   it("passes all authored public cases through the shared mission evaluator", () => {

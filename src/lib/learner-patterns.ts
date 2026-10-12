@@ -3,11 +3,23 @@
 // skills by concept" story working even when Supabase persistence is not
 // configured. All data stays in this browser's localStorage.
 
+import { buildLearnerAnalytics, type LearnerAnalytics } from "@/lib/adaptive-learner";
+import { missions } from "@/lib/missions";
+
 export interface LocalAttemptRecord {
   missionId: string;
   category: string;
   concepts: string[];
   passed: boolean;
+  executionStatus?: string;
+  passedTests?: number;
+  totalTests?: number;
+  mode?: "run" | "submit";
+  executionSource?: "local" | "live";
+  concept?: string;
+  confidence?: "high" | "medium" | "low";
+  evidence?: string[];
+  submissionId?: string;
   recordedAt: string;
 }
 
@@ -43,7 +55,16 @@ export function parseLocalAttempts(raw: string | null): LocalAttemptRecord[] {
         && typeof (record as LocalAttemptRecord).missionId === "string"
         && typeof (record as LocalAttemptRecord).category === "string"
         && Array.isArray((record as LocalAttemptRecord).concepts),
-    );
+    ).map((record) => ({
+      ...record,
+      passed: record.passed === true,
+      executionStatus: record.executionStatus ?? (record.passed ? "passed" : "wrong_answer"),
+      passedTests: typeof record.passedTests === "number" ? record.passedTests : record.passed ? 1 : 0,
+      totalTests: typeof record.totalTests === "number" ? record.totalTests : 1,
+      mode: record.mode ?? "run",
+      executionSource: record.executionSource ?? "local",
+      evidence: Array.isArray(record.evidence) ? record.evidence : [],
+    }));
   } catch {
     return [];
   }
@@ -76,6 +97,7 @@ export function recordLocalAttempt(attempt: Omit<LocalAttemptRecord, "recordedAt
   if (typeof window === "undefined") return;
   try {
     const records = readStorage();
+    if (attempt.submissionId && records.some((record) => record.submissionId === attempt.submissionId)) return;
     records.push({ ...attempt, recordedAt: new Date().toISOString() });
     const trimmed = records.slice(-MAX_RECORDS);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
@@ -87,6 +109,28 @@ export function recordLocalAttempt(attempt: Omit<LocalAttemptRecord, "recordedAt
 
 export function getLocalAttempts(): LocalAttemptRecord[] {
   return readStorage();
+}
+
+export function getLocalLearnerAnalytics(attempts = readStorage()): LearnerAnalytics {
+  return buildLearnerAnalytics({
+    missions,
+    completions: [],
+    attempts: attempts.map((attempt, index) => ({
+      id: attempt.submissionId ?? `${attempt.missionId}-${attempt.recordedAt}-${index}`,
+      submissionId: attempt.submissionId,
+      missionId: attempt.missionId,
+      executionStatus: attempt.executionStatus ?? (attempt.passed ? "passed" : "wrong_answer"),
+      passedTests: attempt.passedTests ?? (attempt.passed ? 1 : 0),
+      totalTests: attempt.totalTests ?? 1,
+      mode: attempt.mode ?? "run",
+      executionSource: attempt.executionSource ?? "local",
+      mistakeCategory: attempt.category,
+      mistakeConcept: attempt.concept,
+      mistakeConfidence: attempt.confidence,
+      mistakeEvidence: attempt.evidence,
+      createdAt: attempt.recordedAt,
+    })),
+  });
 }
 
 // Recurring mistake categories across ALL missions the learner attempted

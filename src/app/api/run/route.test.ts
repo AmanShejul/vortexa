@@ -65,6 +65,19 @@ function configureSuccessfulExecution(returnWrongAnswer = false) {
   });
 }
 
+function configureSourceSensitiveExecution() {
+  mocks.executePython.mockImplementation(async (harnessSource: string) => {
+    const argumentLine = harnessSource.match(/^__cq_args = (.+)$/m)?.[1];
+    const args = argumentLine ? JSON.parse(argumentLine) as number[] : [];
+    const value = harnessSource.includes("return 1 + 4") ? 5 : args.reduce((sum, current) => sum + current, 0);
+    return {
+      statusId: 3,
+      statusDescription: "Accepted",
+      stdout: `${HARNESS_MARKER}${JSON.stringify({ ok: true, value })}`,
+    };
+  });
+}
+
 beforeEach(() => {
   mocks.executePython.mockReset();
   mocks.getAuthenticatedUser.mockReset();
@@ -163,7 +176,7 @@ describe("POST /api/run progress integrity", () => {
     expect(mocks.persistMissionAttempt).toHaveBeenCalledWith(expect.objectContaining({
       executionStatus: expectedStatus,
       allPassed: false,
-      mistakeCategory: undefined,
+      mistakeCategory: "SYNTAX_OR_RUNTIME",
     }));
   });
 
@@ -260,6 +273,34 @@ describe("POST /api/run progress integrity", () => {
     expect(submitResult.tests.some((test: { id: string }) => !test.id.startsWith("public-"))).toBe(true);
   });
 
+  it("rejects a hardcoded Sum of Two Numbers answer during server verification", async () => {
+    configureSourceSensitiveExecution();
+    const request = new Request("http://localhost/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer verified-test-token" },
+      body: JSON.stringify({
+        missionId: "sum-of-two-numbers",
+        sourceCode: "def sum_two_numbers(a, b):\n    return 1 + 4",
+        language: "python",
+        mode: "submit",
+        executionSource: "live",
+      }),
+    });
+
+    const response = await POST(request);
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result.status).toBe("wrong_answer");
+    expect(result.allPassed).toBe(false);
+    expect(result.totalTests).toBe(7);
+    expect(result.passedTests).toBeLessThan(result.totalTests);
+    expect(mocks.persistMissionAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      executionStatus: "wrong_answer",
+      allPassed: false,
+    }));
+  });
+
   it("grades stdin/stdout programs with the same public/private Run and Submit boundary", async () => {
     mocks.executePython.mockImplementation(async (harnessSource: string) => {
       const inputSource = harnessSource.match(/^__cq_input = (.+)$/m)?.[1];
@@ -311,5 +352,18 @@ describe("POST /api/run progress integrity", () => {
     expect(result.allPassed).toBe(true);
     expect(result.persistenceStatus).toBe("failed");
     expect(result.attemptId).toBeUndefined();
+  });
+
+  it("returns a successful execution with an explicit unavailable persistence status when storage is unconfigured", async () => {
+    configureSuccessfulExecution();
+    mocks.isSupabasePersistenceConfigured.mockReturnValue(false);
+
+    const response = await POST(makeRequest());
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result.status).toBe("passed");
+    expect(result.persistenceStatus).toBe("unavailable");
+    expect(mocks.persistMissionAttempt).not.toHaveBeenCalled();
   });
 });

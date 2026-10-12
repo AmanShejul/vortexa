@@ -15,13 +15,51 @@ describe("execution client errors", () => {
     })).toMatch(/Local Python.*JUDGE0_API_URL/i);
   });
 
+  it("surfaces a server execution failure to the submission caller", async () => {
+    vi.stubGlobal("window", globalThis);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "judge0_configuration_missing" },
+    }), { status: 503, headers: { "Content-Type": "application/json" } })));
+
+    await expect(executeMission(
+      "sum-of-two-numbers",
+      "def sum_two_numbers(a, b): return a + b",
+      "submit",
+    )).rejects.toThrow(/Judge0.*not configured/i);
+  });
+
+  it("maps placeholder Judge0 configuration to an actionable Submit error", async () => {
+    vi.stubGlobal("window", globalThis);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "judge0_configuration_missing" },
+    }), { status: 503, headers: { "Content-Type": "application/json" } })));
+
+    await expect(executeMission(
+      "sum-of-two-numbers",
+      "def sum_two_numbers(a, b): return a + b",
+      "submit",
+    )).rejects.toThrow(/Judge0.*not configured.*Local Python/i);
+  });
+
   it("does not expose provider response details for generic upstream failures", () => {
     expect(getSafeExecutionError(503, {
       error: {
         code: "judge0_provider_unavailable",
         message: "private upstream detail",
       },
-    })).toContain("Live Python execution is unavailable");
+    })).toContain("Live Judge0 execution is unavailable");
+  });
+
+  it("explains that provider-unavailable errors are server connectivity failures", () => {
+    expect(getSafeExecutionError(503, {
+      error: { code: "judge0_provider_unavailable", message: "private network detail" },
+    })).toMatch(/Next\.js server could not reach Judge0.*restart Next\.js/i);
+  });
+
+  it("maps Judge0 queue overloads separately from server connectivity failures", () => {
+    expect(getSafeExecutionError(503, {
+      error: { code: "judge0_provider_overloaded" },
+    })).toMatch(/queueing too many submissions/i);
   });
 
   it("routes Live Judge0 only when explicitly selected", async () => {
@@ -44,7 +82,7 @@ describe("execution client errors", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/run", expect.objectContaining({ method: "POST" }));
   });
 
-  it("defaults to local Python and sends only public tests to the worker", async () => {
+  it("keeps Run code local but sends Submit mission to the trusted server", async () => {
     vi.stubGlobal("window", globalThis);
     const cases = [
       { id: "public-1", label: "Example 1", args: [2, 3], expected: 5 },
@@ -87,23 +125,44 @@ describe("execution client errors", () => {
     }
     vi.stubGlobal("Worker", FakeWorker);
 
-    const result = await executeMission(
+    const runResult = await executeMission(
+      "sum-of-two-numbers",
+      "def sum_two_numbers(a, b): return a + b",
+      "run",
+    );
+
+    expect(runResult.executionSource).toBe("local");
+    expect(runResult.executionScope).toBe("public_tests_only");
+    expect(workerRequest).toMatchObject({
+      execution: { kind: "function", functionName: "sum_two_numbers" },
+      testCases: cases,
+    });
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      status: "passed",
+      executionSource: "live",
+      executionScope: "full_suite",
+      summary: "All 4 tests passed.",
+      completedAt: new Date().toISOString(),
+      tests: [],
+      totalTests: 4,
+      passedTests: 4,
+      failedTests: 0,
+      allPassed: true,
+      mode: "submit",
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const submitResult = await executeMission(
       "sum-of-two-numbers",
       "def sum_two_numbers(a, b): return a + b",
       "submit",
     );
 
-    expect(result.executionSource).toBe("local");
-    expect(result.executionScope).toBe("public_tests_only");
-    expect(result.summary).toContain("hidden tests were not run");
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/missions/tests?missionId=sum-of-two-numbers",
-      expect.objectContaining({ cache: "no-store" }),
-    );
-    expect(fetchMock.mock.calls[0][0]).not.toBe("/api/run");
-    expect(workerRequest).toMatchObject({
-      execution: { kind: "function", functionName: "sum_two_numbers" },
-      testCases: cases,
-    });
+    expect(submitResult.executionSource).toBe("live");
+    expect(submitResult.executionScope).toBe("full_suite");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/run", expect.objectContaining({
+      method: "POST",
+      body: expect.stringContaining('"mode":"submit"'),
+    }));
   });
 });

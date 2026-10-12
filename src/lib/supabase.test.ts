@@ -6,7 +6,7 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: createClientMock,
 }));
 
-import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { createSupabaseBrowserClient, getSupabaseConfig } from "@/lib/supabase";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -33,6 +33,18 @@ describe("Supabase browser client", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
 
+    expect(createSupabaseBrowserClient()).toBeNull();
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
+  it("does not treat environment-template Supabase values as a real project", () => {
+    vi.stubEnv("SUPABASE_URL", "https://your-project.supabase.co");
+    vi.stubEnv("SUPABASE_ANON_KEY", "your-anon-key");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "your-service-role-key");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+
+    expect(getSupabaseConfig()).toBeNull();
     expect(createSupabaseBrowserClient()).toBeNull();
     expect(createClientMock).not.toHaveBeenCalled();
   });

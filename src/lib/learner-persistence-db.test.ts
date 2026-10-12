@@ -135,4 +135,30 @@ describe("server-side progress writes", () => {
 
     expect(completions.upsert).toHaveBeenCalledOnce();
   });
+
+  it("treats a repeated submission reference as the same learning event", async () => {
+    const attempts = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      eq: vi.fn(),
+      single: vi.fn().mockResolvedValue({ data: null, error: { code: "23505", message: "duplicate submission" } }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: "original-attempt" }, error: null }),
+    };
+    attempts.insert.mockReturnValue(attempts);
+    attempts.select.mockReturnValue(attempts);
+    attempts.eq.mockReturnValue(attempts);
+    mocks.from.mockReturnValue(attempts);
+    mocks.createServiceClient.mockReturnValue({ from: mocks.from });
+
+    await expect(persistMissionAttempt({
+      learnerId: "verified-learner",
+      missionId: "sum-of-two-numbers",
+      mode: "submit",
+      executionStatus: "wrong_answer",
+      passedTests: 1,
+      totalTests: 4,
+      submissionId: "submission-retry-1",
+      mistakeCategory: "INCORRECT_LOGIC",
+    })).resolves.toEqual({ id: "original-attempt", skipped: false, duplicate: true });
+  });
 });

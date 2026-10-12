@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getMission } from "@/lib/missions";
+import { AdaptiveLearnerSection } from "@/components/AdaptiveLearnerSection";
 import type { ProgressSummary } from "@/types";
 
 type DashboardState =
@@ -66,7 +67,8 @@ export function LearnerProgressDashboard() {
           });
           return;
         }
-        if (!payload?.summary || typeof payload.summary.totalAttempts !== "number" || !Array.isArray(payload.summary.recentAttempts)) {
+        if (!payload?.summary || typeof payload.summary.totalAttempts !== "number" || !Array.isArray(payload.summary.recentAttempts)
+          || !Array.isArray(payload.summary.conceptStats) || !Array.isArray(payload.summary.recommendations)) {
           setState({ status: "error", message: "The progress service returned an invalid response. Please try again." });
           return;
         }
@@ -141,13 +143,16 @@ export function LearnerProgressDashboard() {
 
   if (state.data.empty) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#353535] bg-[#101010] p-6 sm:p-8">
-        <p className="text-sm font-semibold text-white">No saved progress yet</p>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-400">Your dashboard will fill in after an authenticated mission run is recorded.</p>
-        <Link href="/missions" className="mt-5 inline-flex min-h-11 items-center rounded-xl border border-[#525252] px-4 text-sm font-semibold text-white transition hover:bg-[#1b1b1b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-          Browse missions
-        </Link>
-      </div>
+      <>
+        <div className="rounded-2xl border border-dashed border-[#353535] bg-[#101010] p-6 sm:p-8">
+          <p className="text-sm font-semibold text-white">No saved progress yet</p>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-400">Your dashboard will fill in after an authenticated mission run is recorded. Start with the suggested beginner mission below to create your first evidence.</p>
+          <Link href="/missions" className="mt-5 inline-flex min-h-11 items-center rounded-xl border border-[#525252] px-4 text-sm font-semibold text-white transition hover:bg-[#1b1b1b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            Browse missions
+          </Link>
+        </div>
+        <AdaptiveLearnerSection data={state.data} scopeLabel="account synced" />
+      </>
     );
   }
 
@@ -197,6 +202,7 @@ export function LearnerProgressDashboard() {
           </div>
         </section>
       </div>
+      <AdaptiveLearnerSection data={state.data} scopeLabel="account synced" />
     </div>
   );
 }

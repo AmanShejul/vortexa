@@ -7,8 +7,9 @@ import { MentorPanel } from "@/components/MentorPanel";
 import { TestResults } from "@/components/TestResults";
 import { executeMission } from "@/lib/execution-client";
 import { recordLocalAttempt } from "@/lib/learner-patterns";
+import { analyzeMistake, toMentorMistakeCategory } from "@/lib/adaptive-learner";
 import { getBrowserAccessToken } from "@/lib/supabase";
-import { classifyMistake, generateMissionRelevantHints } from "../../yash/aiMentor.js";
+import { generateMissionRelevantHints } from "../../yash/aiMentor.js";
 import type { LocalPythonPhase } from "@/lib/local-python";
 import type { ExecutionMode, ExecutionResult, ExecutionSource, HintSet, MentorResponse, Mission } from "@/types";
 
@@ -26,6 +27,11 @@ function clearMentorState(
   setHintError(null);
 }
 
+function createSubmissionId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") return globalThis.crypto.randomUUID();
+  return `submission-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export function ArenaWorkspace({ mission }: { mission: Mission }) {
   const [code, setCode] = useState(mission.starterCode);
   const [result, setResult] = useState<ExecutionResult | null>(null);
@@ -34,6 +40,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
   const [resultSource, setResultSource] = useState<string | null>(null);
   const [mentorEvidenceToken, setMentorEvidenceToken] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [runningMode, setRunningMode] = useState<ExecutionMode | null>(null);
   const [editorReady, setEditorReady] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [mentorHints, setMentorHints] = useState<Partial<HintSet>>({});
@@ -64,7 +71,9 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
   async function run(mode: ExecutionMode) {
     if (running) return;
     const submittedCode = code;
+    const submissionId = createSubmissionId();
     setRunning(true);
+    setRunningMode(mode);
     setResult(null);
     setResultSource(null);
     setMentorEvidenceToken(null);
@@ -77,22 +86,32 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
         mode,
         executionSource,
         executionSource === "local" ? setLocalPythonPhase : undefined,
+        submissionId,
       );
       setResult(executionResult);
       setResultSource(submittedCode);
       setMentorEvidenceToken(executionResult.mentorEvidenceToken ?? null);
-      if (executionResult.executionSource === "local") {
-        recordLocalAttempt({
-          missionId: mission.id,
-          category: String(classifyMistake(submittedCode, executionResult)),
-          concepts: mission.concepts,
-          passed: executionResult.allPassed,
-        });
-      }
+      const analysis = analyzeMistake({ mission, sourceCode: submittedCode, executionResult });
+      recordLocalAttempt({
+        missionId: mission.id,
+        category: analysis.category,
+        concepts: mission.concepts,
+        passed: executionResult.allPassed,
+        executionStatus: executionResult.status,
+        passedTests: executionResult.passedTests,
+        totalTests: executionResult.totalTests,
+        mode,
+        executionSource: executionResult.executionSource,
+        concept: analysis.concept,
+        confidence: analysis.confidence,
+        evidence: analysis.evidence,
+        submissionId,
+      });
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : "Execution could not be completed. Please try again.");
     } finally {
       setRunning(false);
+      setRunningMode(null);
     }
   }
 
@@ -117,7 +136,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
     // engine. This mirrors the server-side /api/hint evidence path.
     if (result.executionSource === "local") {
       try {
-        const category = String(classifyMistake(code, result));
+        const category = toMentorMistakeCategory(analyzeMistake({ mission, sourceCode: code, executionResult: result }).category);
         const guidance = generateMissionRelevantHints(category, { status: result.status }, mission);
         const hintKey = `level${level}` as "level1" | "level2" | "level3";
         const keys: Array<keyof HintSet> = ["nudge", "approach", "detailed"];
@@ -174,8 +193,10 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
     }
   }
 
+  const activeExecutionSource = runningMode === "submit" ? "live" : executionSource;
+  const submitting = running && runningMode === "submit";
   const statusMessage = running
-    ? executionSource === "local"
+    ? activeExecutionSource === "local"
         ? localPythonPhase === "loading" ? "Loading local Python runtime…" : "Running Python locally…"
         : "Judge0 is running your Python solution…"
     : requestError
@@ -252,19 +273,19 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
               type="button"
               onClick={() => run("run")}
               disabled={running}
-              aria-busy={running}
+              aria-busy={running && runningMode === "run"}
               className="min-h-11 rounded-xl border border-[#525252] bg-[#171717] px-3 text-xs font-semibold text-white transition hover:border-[#737373] hover:bg-[#202020] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-wait disabled:border-[#292929] disabled:text-neutral-500 sm:min-w-28 sm:px-4"
             >
-              {running ? "Running…" : "Run code"}
+              {running && runningMode === "run" ? "Running…" : "Run code"}
             </button>
             <button
               type="button"
               onClick={() => run("submit")}
               disabled={running}
-              aria-busy={running}
+              aria-busy={submitting}
               className="min-h-11 rounded-xl bg-white px-3 text-xs font-bold text-black transition hover:bg-neutral-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-wait disabled:bg-[#292929] disabled:text-neutral-500 sm:min-w-32 sm:px-4"
             >
-              {running ? "Checking…" : "Submit mission"}
+              {submitting ? "Submitting…" : "Submit mission"}
             </button>
             <button
               type="button"
@@ -335,7 +356,7 @@ export function ArenaWorkspace({ mission }: { mission: Mission }) {
             <CodeEditor value={code} onChange={setCode} onReady={() => setEditorReady(true)} readOnly={running} />
             <p className="mt-3 text-[11px] leading-5 text-neutral-500">
               {executionSource === "local"
-                ? "Run and Submit both execute locally against public examples only; hidden tests are never sent to this browser."
+                ? "Run executes locally against public examples. Submit uses the server to run hidden tests and verify completion."
                 : "Run checks the public examples. Submit checks the full mission suite."}
               {running && " Editing is paused until this run finishes."}
             </p>

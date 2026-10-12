@@ -119,7 +119,7 @@ export function TestResults({ result }: { result: ExecutionResult | null }) {
         )}
         {result.persistenceStatus === "unavailable" && (
           <p className="mt-3 border-t border-[#292929] pt-3 text-xs text-neutral-400" role="status">
-            Progress saving is not configured for this run.
+            Progress could not be saved because persistence is not configured. This result is not in your saved learner progress.
           </p>
         )}
         {result.persistenceStatus === "failed" && (

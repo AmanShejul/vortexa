@@ -8,7 +8,7 @@ describe("GET /api/missions/tests", () => {
 
     expect(response.status).toBe(200);
     expect(payload.execution).toMatchObject({ kind: "function", functionName: "sum_two_numbers" });
-    expect(payload.tests).toHaveLength(2);
+    expect(payload.tests).toHaveLength(5);
     expect(payload.tests.every((test: { id: string }) => test.id.startsWith("public-"))).toBe(true);
     expect(JSON.stringify(payload)).not.toContain("hidden");
     expect(JSON.stringify(payload)).not.toContain("Private test");

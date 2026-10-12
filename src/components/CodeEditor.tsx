@@ -2,6 +2,8 @@
 
 import Editor from "@monaco-editor/react";
 
+import { isClipboardShortcut } from "./editor-clipboard";
+
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -42,6 +44,41 @@ export function CodeEditor({ value, onChange, onReady, readOnly = false }: CodeE
             },
           });
           monaco.editor.setTheme("codequest-monochrome");
+
+          const blockClipboardCommand = () => undefined;
+          [
+            monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC,
+            monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX,
+            monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV,
+            monaco.KeyMod.CtrlCmd | monaco.KeyCode.Insert,
+            monaco.KeyMod.Shift | monaco.KeyCode.Insert,
+          ].forEach((keybinding) => editor.addCommand(keybinding, blockClipboardCommand));
+
+          const editorDomNode = editor.getDomNode();
+          if (editorDomNode) {
+            const preventClipboardEvent = (event: ClipboardEvent) => {
+              event.preventDefault();
+              event.stopPropagation();
+            };
+            const preventClipboardShortcut = (event: KeyboardEvent) => {
+              if (!isClipboardShortcut(event)) return;
+              event.preventDefault();
+              event.stopPropagation();
+            };
+
+            editorDomNode.addEventListener("copy", preventClipboardEvent, true);
+            editorDomNode.addEventListener("cut", preventClipboardEvent, true);
+            editorDomNode.addEventListener("paste", preventClipboardEvent, true);
+            editorDomNode.addEventListener("keydown", preventClipboardShortcut, true);
+
+            editor.onDidDispose(() => {
+              editorDomNode.removeEventListener("copy", preventClipboardEvent, true);
+              editorDomNode.removeEventListener("cut", preventClipboardEvent, true);
+              editorDomNode.removeEventListener("paste", preventClipboardEvent, true);
+              editorDomNode.removeEventListener("keydown", preventClipboardShortcut, true);
+            });
+          }
+
           onReady?.();
         }}
         theme="codequest-monochrome"
@@ -59,6 +96,7 @@ export function CodeEditor({ value, onChange, onReady, readOnly = false }: CodeE
           readOnly,
           ariaLabel: "Python code editor",
           automaticLayout: true,
+          contextmenu: false,
         }}
       />
     </div>

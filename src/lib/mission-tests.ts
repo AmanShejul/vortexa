@@ -34,10 +34,13 @@ const missionTestSuites: Record<string, MissionTestSuite> = {
   "sum-of-two-numbers": {
     public: [
       { id: "public-1", label: "Example 1", args: [2, 3], expected: 5 },
-      { id: "public-2", label: "Example 2", args: [-4, 9], expected: 5 },
+      { id: "public-2", label: "Example 2", args: [1, 2], expected: 3 },
+      { id: "public-3", label: "Zero values", args: [0, 0], expected: 0 },
+      { id: "public-4", label: "Negative and positive values", args: [-4, 9], expected: 5 },
+      { id: "public-5", label: "Negative total", args: [-8, 3], expected: -5 },
     ],
     hidden: [
-      { id: "hidden-1", label: "Private test 1", args: [0, 0], expected: 0 },
+      { id: "hidden-1", label: "Private test 1", args: [123456, -123456], expected: 0 },
       { id: "hidden-2", label: "Private test 2", args: [-1000000, 999999], expected: -1 },
     ],
   },
@@ -79,6 +82,57 @@ const missionTestSuites: Record<string, MissionTestSuite> = {
     hidden: [
       { id: "hidden-1", label: "Private test 1", args: ["AEIOU"], expected: 5 },
       { id: "hidden-2", label: "Private test 2", args: [""], expected: 0 },
+    ],
+  },
+  "factorial-number": {
+    public: [
+      { id: "public-1", label: "Example 1", args: [0], expected: 1 },
+      { id: "public-2", label: "Example 2", args: [5], expected: 120 },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [1], expected: 1 },
+      { id: "hidden-2", label: "Private test 2", args: [20], expected: 2432902008176640000 },
+    ],
+  },
+  "palindrome-check": {
+    public: [
+      { id: "public-1", label: "Example 1", args: ["RaceCar"], expected: true },
+      { id: "public-2", label: "Example 2", args: ["Hello"], expected: false },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: ["A man"], expected: false },
+      { id: "hidden-2", label: "Private test 2", args: [""], expected: true },
+    ],
+  },
+  "reverse-string": {
+    public: [
+      { id: "public-1", label: "Example 1", args: ["hello"], expected: "olleh" },
+      { id: "public-2", label: "Example 2", args: ["Python 3!"], expected: "!3 nohtyP" },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [""], expected: "" },
+      { id: "hidden-2", label: "Private test 2", args: ["a b"], expected: "b a" },
+    ],
+  },
+  "largest-of-three": {
+    public: [
+      { id: "public-1", label: "Example 1", args: [4, 9, 2], expected: 9 },
+      { id: "public-2", label: "Example 2", args: [-8, -3, -12], expected: -3 },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: [7, 7, 3], expected: 7 },
+      { id: "hidden-2", label: "Private test 2", args: [-4, -4, -4], expected: -4 },
+    ],
+  },
+  "longest-substring": {
+    public: [
+      { id: "public-1", label: "Example 1", args: ["abcabcbb"], expected: 3 },
+      { id: "public-2", label: "Example 2", args: ["bbbbb"], expected: 1 },
+    ],
+    hidden: [
+      { id: "hidden-1", label: "Private test 1", args: ["pwwkew"], expected: 3 },
+      { id: "hidden-2", label: "Private test 2", args: [""], expected: 0 },
+      { id: "hidden-3", label: "Private test 3", args: ["a b"], expected: 3 },
     ],
   },
   "two-sum": {

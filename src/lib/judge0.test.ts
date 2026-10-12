@@ -17,6 +17,19 @@ describe("Judge0 execution client", () => {
     } satisfies Partial<Judge0ServiceError>);
   });
 
+  it("treats the environment-template Judge0 URL as unconfigured", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://your-judge0-provider.example");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      name: "Judge0ServiceError",
+      code: "configuration_missing",
+      httpStatus: 503,
+    } satisfies Partial<Judge0ServiceError>);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("submits base64 Python source using the configured language and polls its token", async () => {
     vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
     vi.stubEnv("JUDGE0_API_KEY", "test-token");
@@ -53,19 +66,74 @@ describe("Judge0 execution client", () => {
     expect(pollUrl).toContain("/submissions/submission-token?base64_encoded=true");
   });
 
+  it("normalizes a configured submissions path without duplicating it", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test/submissions/");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ token: "submission-token" }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status_id: 3, status: { id: 3, description: "Accepted" } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await executePython("print('hello')");
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://judge0.test/submissions?base64_encoded=true&wait=false");
+    expect(fetchMock.mock.calls[1]?.[0]).toContain("https://judge0.test/submissions/submission-token?");
+  });
+
   it("classifies provider authentication failures without treating them as learner errors", async () => {
     vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>private detail</html>", { status: 401 })));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "invalid token", token: "secret-token" }), { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(executePython("print('hello')")).rejects.toMatchObject({
       code: "authentication_failed",
       httpStatus: 503,
     } satisfies Partial<Judge0ServiceError>);
+    const diagnostic = JSON.parse(String(errorSpy.mock.calls[0]?.[1]));
+    expect(diagnostic).toMatchObject({
+      phase: "submit",
+      method: "POST",
+      status: 401,
+      response: { error: "invalid token", },
+    });
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("secret-token");
+    errorSpy.mockRestore();
+  });
+
+  it("classifies provider rate limits separately", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "quota exceeded" }), { status: 429 })));
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      code: "provider_rate_limited",
+      httpStatus: 503,
+    } satisfies Partial<Judge0ServiceError>);
+  });
+
+  it("classifies Judge0 queue overload separately from internal failures", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "queue is full" }), { status: 503 })));
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      code: "provider_overloaded",
+      httpStatus: 503,
+      message: "Code execution service queue is overloaded. Try again shortly.",
+    } satisfies Partial<Judge0ServiceError>);
+  });
+
+  it("classifies malformed submission requests without exposing the upstream body", async () => {
+    vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "language_id is invalid", source_code: "private source" }), { status: 400 })));
+
+    await expect(executePython("print('hello')")).rejects.toMatchObject({
+      code: "request_rejected",
+      httpStatus: 502,
+    } satisfies Partial<Judge0ServiceError>);
   });
 
   it("classifies provider outages without returning the provider response body", async () => {
     vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("private upstream details", { status: 503 })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("private upstream details", { status: 500 })));
 
     await expect(executePython("print('hello')")).rejects.toMatchObject({
       code: "provider_internal_error",
@@ -76,13 +144,26 @@ describe("Judge0 execution client", () => {
 
   it("classifies network failures as provider unavailable", async () => {
     vi.stubEnv("JUDGE0_API_URL", "https://judge0.test");
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("private network detail")));
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(Object.assign(new TypeError("private network detail"), {
+      cause: { code: "ECONNRESET", hostname: "judge0.test", secret: "must-not-log" },
+    })));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(executePython("print('hello')")).rejects.toMatchObject({
       code: "provider_unavailable",
       httpStatus: 503,
       message: "Code execution service is unavailable.",
     } satisfies Partial<Judge0ServiceError>);
+    const diagnostic = JSON.parse(String(errorSpy.mock.calls[0]?.[1]));
+    expect(diagnostic).toMatchObject({
+      phase: "submit",
+      method: "POST",
+      target: "judge0.test/submissions",
+      status: "network",
+      cause: { name: "TypeError", message: "private network detail", code: "ECONNRESET", hostname: "judge0.test" },
+    });
+    expect(JSON.stringify(diagnostic)).not.toContain("must-not-log");
+    errorSpy.mockRestore();
   });
 
   it("rejects missing submission tokens and malformed provider JSON", async () => {

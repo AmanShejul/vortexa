@@ -2,6 +2,10 @@ import { createClient, type SupabaseClient, type User } from "@supabase/supabase
 
 let browserClientCache: { cacheKey: string; client: SupabaseClient } | null = null;
 
+function isTemplateValue(value: string | undefined, template: string): boolean {
+  return value?.trim().toLowerCase() === template;
+}
+
 export interface SupabaseConfig {
   url: string;
   anonKey: string;
@@ -11,13 +15,21 @@ export interface SupabaseConfig {
 export function getSupabaseConfig(): SupabaseConfig | null {
   const url = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.SUPABASE_ANON_KEY?.trim() || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const configuredServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
-  if (!url || !anonKey) {
+  if (!url || !anonKey
+    || isTemplateValue(url, "https://your-project.supabase.co")
+    || isTemplateValue(anonKey, "your-anon-key")) {
     return null;
   }
 
-  return { url, anonKey, serviceRoleKey };
+  return {
+    url,
+    anonKey,
+    serviceRoleKey: isTemplateValue(configuredServiceRoleKey, "your-service-role-key")
+      ? undefined
+      : configuredServiceRoleKey,
+  };
 }
 
 export function isSupabaseConfigured(): boolean {

@@ -3,13 +3,17 @@ const DEFAULT_TEST_TIMEOUT_MS = 8_000;
 const NETWORK_TIMEOUT_MS = 5_000;
 const MAX_POLL_REQUESTS = 40;
 const MAX_SUBMISSION_TOKEN_LENGTH = 512;
+const MAX_DIAGNOSTIC_BODY_BYTES = 16 * 1024;
 const PYTHON_LANGUAGE_ID = 71;
+const PLACEHOLDER_JUDGE0_HOST = "your-judge0-provider.example";
 
 export type Judge0ServiceErrorCode =
   | "configuration_missing"
   | "configuration_invalid"
   | "authentication_failed"
   | "provider_unavailable"
+  | "provider_rate_limited"
+  | "provider_overloaded"
   | "provider_timeout"
   | "request_rejected"
   | "provider_internal_error"
@@ -44,6 +48,8 @@ export interface Judge0ExecutionLimits {
   signal?: AbortSignal;
 }
 
+type Judge0RequestPhase = "submit" | "poll";
+
 function getConfig(): { submissionsUrl: string; headers: Record<string, string>; languageId: number } {
   const configuredUrl = process.env.JUDGE0_API_URL?.trim();
   if (!configuredUrl) {
@@ -59,7 +65,11 @@ function getConfig(): { submissionsUrl: string; headers: Record<string, string>;
     if (parsedUrl.username || parsedUrl.password || parsedUrl.search || parsedUrl.hash) {
       throw new Error("Credentials or query strings are not supported in the endpoint URL.");
     }
-  } catch {
+    if (parsedUrl.hostname.toLowerCase() === PLACEHOLDER_JUDGE0_HOST) {
+      throw new Judge0ServiceError("Code execution service is not configured.", 503, "configuration_missing");
+    }
+  } catch (error) {
+    if (error instanceof Judge0ServiceError) throw error;
     throw new Judge0ServiceError("Code execution service configuration is invalid.", 503, "configuration_invalid");
   }
   const normalizedUrl = parsedUrl.toString().replace(/\/+$/, "");
@@ -68,7 +78,8 @@ function getConfig(): { submissionsUrl: string; headers: Record<string, string>;
     Accept: "application/json",
     "Content-Type": "application/json",
   };
-  const apiKey = process.env.JUDGE0_API_KEY?.trim();
+  const configuredApiKey = process.env.JUDGE0_API_KEY?.trim();
+  const apiKey = configuredApiKey && configuredApiKey !== "your-judge0-key" ? configuredApiKey : "";
   if (apiKey) {
     const authHeader = process.env.JUDGE0_AUTH_HEADER?.trim() || "X-Auth-Token";
     const authPrefix = process.env.JUDGE0_AUTH_PREFIX ?? "";
@@ -101,6 +112,106 @@ function getRequestTimeout(limits: Judge0ExecutionLimits, perTestDeadline: numbe
     );
   }
   return Math.max(1, Math.min(NETWORK_TIMEOUT_MS, remaining));
+}
+
+function safeRequestTarget(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    const safePath = url.pathname.replace(/(\/submissions\/)[^/]+/i, "$1[token]");
+    return `${url.hostname}${safePath}`;
+  } catch {
+    return "invalid-target";
+  }
+}
+
+function redactDiagnosticText(value: string): string {
+  return value
+    .slice(0, 1_000)
+    .replace(/(api[-_ ]?key|authorization|token|secret|password)\s*[:=]\s*[^,\s}]+/gi, "$1=[redacted]");
+}
+
+function sanitizeDiagnosticBody(body: string): Record<string, unknown> {
+  if (!body.trim()) return { kind: "empty" };
+
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { kind: Array.isArray(parsed) ? "array" : typeof parsed };
+    }
+
+    const source = parsed as Record<string, unknown>;
+    const safe: Record<string, unknown> = {};
+    for (const key of ["error", "message", "detail", "status_code"]) {
+      const value = source[key];
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        safe[key] = typeof value === "string" ? redactDiagnosticText(value) : value;
+      }
+    }
+    if (source.status && typeof source.status === "object" && !Array.isArray(source.status)) {
+      const status = source.status as Record<string, unknown>;
+      safe.status = {
+        ...(typeof status.id === "number" || typeof status.id === "string" ? { id: status.id } : {}),
+        ...(typeof status.description === "string" ? { description: redactDiagnosticText(status.description) } : {}),
+      };
+    }
+    return Object.keys(safe).length > 0 ? safe : { kind: "json", keys: Object.keys(source).slice(0, 20) };
+  } catch {
+    return { kind: "text", preview: redactDiagnosticText(body) };
+  }
+}
+
+function sanitizeNetworkError(error: unknown): Record<string, unknown> {
+  if (!error || typeof error !== "object") return { kind: "unknown" };
+  const source = error as { name?: unknown; message?: unknown; cause?: unknown };
+  const safe: Record<string, unknown> = {
+    name: typeof source.name === "string" ? source.name : "Error",
+  };
+  if (typeof source.message === "string") safe.message = redactDiagnosticText(source.message);
+  if (source.cause && typeof source.cause === "object") {
+    const cause = source.cause as Record<string, unknown>;
+    for (const key of ["code", "errno", "syscall", "hostname", "port"]) {
+      if (typeof cause[key] === "string" || typeof cause[key] === "number") safe[key] = cause[key];
+    }
+  }
+  return safe;
+}
+
+function logUpstreamFailure(
+  rawUrl: string,
+  status: number | "network",
+  body = "",
+  error?: unknown,
+  phase: Judge0RequestPhase = "submit",
+  method = "GET",
+) {
+  const diagnostic = {
+    phase,
+    method,
+    target: safeRequestTarget(rawUrl),
+    status,
+    response: sanitizeDiagnosticBody(body),
+    ...(status === "network" ? { cause: sanitizeNetworkError(error) } : {}),
+  };
+  // Keep the diagnostic as one JSON string. Next's development log serializer
+  // can discard object arguments, which previously reduced useful failures to
+  // "[judge0] upstream request failure {}".
+  console.error("[judge0] upstream request failure", JSON.stringify(diagnostic));
+}
+
+function logResponseParseFailure(
+  rawUrl: string,
+  phase: Judge0RequestPhase,
+  method: string,
+  status: number,
+  bodyLength: number,
+) {
+  console.error("[judge0] response parse failure", JSON.stringify({
+    phase,
+    method,
+    target: safeRequestTarget(rawUrl),
+    status,
+    bodyLength,
+  }));
 }
 
 async function readBoundedResponse(response: Response, maxBytes: number, signal: AbortSignal): Promise<string> {
@@ -137,6 +248,7 @@ async function requestJson(
   init: RequestInit,
   limits: Judge0ExecutionLimits,
   perTestDeadline: number,
+  phase: Judge0RequestPhase,
 ): Promise<unknown> {
   const controller = new AbortController();
   const abortForDeadline = () => controller.abort();
@@ -151,12 +263,21 @@ async function requestJson(
       cache: "no-store",
     });
     if (!response.ok) {
-      await response.body?.cancel().catch(() => undefined);
+      let responseBody = "";
+      try {
+        responseBody = await readBoundedResponse(response, MAX_DIAGNOSTIC_BODY_BYTES, controller.signal);
+      } catch {
+        await response.body?.cancel().catch(() => undefined);
+      }
+      logUpstreamFailure(url, response.status, responseBody, undefined, phase, init.method ?? "GET");
       if (response.status === 401 || response.status === 403) {
         throw new Judge0ServiceError("Code execution service authentication failed.", 503, "authentication_failed");
       }
       if (response.status === 429) {
-        throw new Judge0ServiceError("Code execution service is temporarily busy. Try again shortly.", 503, "provider_unavailable");
+        throw new Judge0ServiceError("Code execution service rate limit reached. Try again shortly.", 503, "provider_rate_limited");
+      }
+      if (response.status === 503) {
+        throw new Judge0ServiceError("Code execution service queue is overloaded. Try again shortly.", 503, "provider_overloaded");
       }
       if (response.status >= 500) {
         throw new Judge0ServiceError("Code execution service encountered an internal error.", 502, "provider_internal_error");
@@ -169,6 +290,7 @@ async function requestJson(
     try {
       payload = text ? JSON.parse(text) : null;
     } catch {
+      logResponseParseFailure(url, phase, init.method ?? "GET", response.status, text.length);
       throw new Judge0ServiceError("Code execution service returned an invalid response.", 502, "invalid_response");
     }
     return payload;
@@ -186,6 +308,13 @@ async function requestJson(
       }
       throw new Judge0ServiceError("Code execution service timed out.", 504, "provider_timeout");
     }
+    if (limits.signal?.aborted || (limits.deadlineAt !== undefined && Date.now() >= limits.deadlineAt)) {
+      throw new Judge0ServiceError("The execution request exceeded its total time limit.", 504, "execution_deadline");
+    }
+    if (Date.now() >= perTestDeadline) {
+      throw new Judge0ServiceError("The test exceeded its execution time limit.", 504, "poll_timeout");
+    }
+    logUpstreamFailure(url, "network", "", error, phase, init.method ?? "GET");
     throw new Judge0ServiceError("Code execution service is unavailable.", 503, "provider_unavailable");
   } finally {
     clearTimeout(timer);
@@ -300,6 +429,7 @@ export async function executePython(
     { method: "POST", headers: config.headers, body: JSON.stringify(createPayload) },
     limits,
     perTestDeadline,
+    "submit",
   );
   if (!created || typeof created !== "object" || Array.isArray(created) || typeof (created as { token?: unknown }).token !== "string" || !(created as { token: string }).token.trim()) {
     throw new Judge0ServiceError("Code execution service did not return a submission token.", 502, "invalid_response");
@@ -317,6 +447,7 @@ export async function executePython(
       { method: "GET", headers: config.headers },
       limits,
       perTestDeadline,
+      "poll",
     );
     const result = parseExecutionResult(payload);
     if (result.statusId > 2) {

@@ -72,4 +72,17 @@ describe("learner-patterns", () => {
     const candidateMissions = [{ id: "sum-of-two-numbers", concepts: ["Functions"] }];
     expect(suggestNextMissionId(candidateMissions, ["sum-of-two-numbers"])).toBeNull();
   });
+
+  it("does not count a retried submission twice when it has the same submission reference", () => {
+    const attempt = {
+      missionId: "sum-of-two-numbers",
+      category: "INCORRECT_LOGIC",
+      concepts: ["Functions"],
+      passed: false,
+      submissionId: "submission-retry-1",
+    };
+    recordLocalAttempt(attempt);
+    recordLocalAttempt(attempt);
+    expect(getLocalAttempts()).toHaveLength(1);
+  });
 });

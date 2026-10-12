@@ -39,4 +39,13 @@ describe("learner persistence helpers", () => {
     expect(summary.repeatedMistakes[0]?.category).toBe("INCORRECT_LOGIC");
     expect(summary.empty).toBe(false);
   });
+
+  it("builds an honest beginner recommendation for a new learner", () => {
+    const summary = buildProgressSummary({ attempts: [], completions: [], mistakes: [] });
+
+    expect(summary.empty).toBe(true);
+    expect(summary.recommendations[0]).toMatchObject({ difficulty: "Beginner" });
+    expect(summary.recommendations[0]?.missionId).toBeTruthy();
+    expect(summary.recommendations[0]?.explanation).toContain("not enough learner history");
+  });
 });

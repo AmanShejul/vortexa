@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMission } from "@/lib/missions";
 import { getMissionTestCases, type ServerTestCase } from "@/lib/mission-tests";
+import { analyzeMistake, toMentorMistakeCategory } from "@/lib/adaptive-learner";
 import { buildPythonHarness, parseHarnessOutput, type HarnessResult } from "@/lib/python-harness";
 import { executePython, Judge0ServiceError, type Judge0ExecutionResult } from "@/lib/judge0";
 import { classifyMistake } from "../../../../yash/aiMentor.js";
@@ -234,6 +235,7 @@ export async function POST(request: Request) {
   const language = requestBody.language;
   const mode = requestBody.mode;
   const executionSource = requestBody.executionSource ?? "live";
+  const submissionId = requestBody.submissionId;
   if (typeof missionId !== "string" || !/^[a-z0-9-]+$/.test(missionId)) {
     return errorResponse(400, "invalid_mission_id", "A valid mission ID is required.");
   }
@@ -251,6 +253,9 @@ export async function POST(request: Request) {
   }
   if (executionSource !== "live") {
     return errorResponse(400, "invalid_execution_source", "This server route supports Live Judge0 execution only.");
+  }
+  if (submissionId !== undefined && (typeof submissionId !== "string" || !/^[A-Za-z0-9_-]{8,120}$/.test(submissionId))) {
+    return errorResponse(400, "invalid_submission_id", "The submission reference is invalid.");
   }
 
   const mission = getMission(missionId);
@@ -326,14 +331,38 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     if (error instanceof Judge0ServiceError) {
+      console.error("[judge0] route execution failure", JSON.stringify({
+        phase: "route",
+        missionId,
+        mode,
+        code: error.code,
+        httpStatus: error.httpStatus,
+      }));
       return errorResponse(error.httpStatus, `judge0_${error.code}`, error.message);
     }
+    console.error("[judge0] route execution failure", JSON.stringify({
+      phase: "route",
+      missionId,
+      mode,
+      code: "execution_failed",
+    }));
     return errorResponse(500, "execution_failed", "The execution request could not be completed.");
   } finally {
     clearTimeout(deadlineTimer);
   }
 
   const executionResult = createResult(mode, tests, testCases.length);
+  const mistakeAnalysis = analyzeMistake({
+    mission,
+    sourceCode,
+    executionResult,
+    testCases: testCases.map((testCase) => ({
+      ...testCase,
+      result: executionResult.tests.find((test) => test.id === testCase.id) ?? {
+        status: "pending",
+      },
+    })),
+  });
 
   if (executionResult.status !== "execution_error" && identityVerified && isMentorEvidenceSigningAvailable()) {
     executionResult.mentorEvidenceToken = createMentorEvidenceToken({
@@ -358,7 +387,12 @@ export async function POST(request: Request) {
           passedTests: executionResult.passedTests,
           totalTests: executionResult.totalTests,
           allPassed: executionResult.allPassed,
-          mistakeCategory: executionResult.allPassed ? undefined : executionResult.status === "wrong_answer" ? "INCORRECT_LOGIC" : undefined,
+          mistakeCategory: executionResult.allPassed ? undefined : toMentorMistakeCategory(mistakeAnalysis.category),
+          mistakeConcept: executionResult.allPassed ? undefined : mistakeAnalysis.concept,
+          mistakeConfidence: executionResult.allPassed ? undefined : mistakeAnalysis.confidence,
+          mistakeEvidence: executionResult.allPassed ? undefined : mistakeAnalysis.evidence,
+          executionSource: "live",
+          submissionId: typeof submissionId === "string" ? submissionId : undefined,
         });
 
         if (!attempt.skipped) {

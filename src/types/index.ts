@@ -1,4 +1,4 @@
-export type Difficulty = "Beginner" | "Intermediate";
+export type Difficulty = "Beginner" | "Intermediate" | "Advanced";
 
 export type MissionCategory =
   | "Fundamentals"
@@ -148,6 +148,11 @@ export interface MissionAttemptRecord {
   mode: ExecutionMode;
   hintLevel?: number;
   mistakeCategory?: string;
+  mistakeConcept?: string;
+  mistakeConfidence?: "high" | "medium" | "low";
+  mistakeEvidence?: string[];
+  executionSource?: ExecutionSource;
+  submissionId?: string;
   createdAt: string;
 }
 
@@ -167,6 +172,52 @@ export interface LearnerMistakeRecord {
   category: string;
   occurrenceCount: number;
   lastSeenAt: string;
+  concept?: string;
+  evidence?: string[];
+}
+
+export interface ConceptSkillStat {
+  concept: string;
+  attempts: number;
+  passes: number;
+  failures: number;
+  sampleSize: number;
+  successRate: number | null;
+  proficiency: "insufficient_evidence" | "needs_practice" | "developing" | "strong";
+  trend: "improving" | "steady" | "needs_attention" | "insufficient_evidence";
+  explanation: string;
+}
+
+export interface MistakePatternSummary {
+  category: string;
+  occurrences: number;
+  missionIds: string[];
+  concept?: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  isRecurring: boolean;
+  improving: boolean;
+  confidence: "high" | "medium" | "low";
+  evidence: string[];
+}
+
+export interface LearningRecommendation {
+  missionId: string;
+  title: string;
+  difficulty: Difficulty;
+  explanation: string;
+  targetedConcept?: string;
+}
+
+export interface RecentLearningProgress {
+  id: string;
+  missionId: string;
+  title: string;
+  status: string;
+  passedTests: number;
+  totalTests: number;
+  mode: ExecutionMode;
+  createdAt: string;
 }
 
 export interface ProgressSummary {
@@ -176,6 +227,10 @@ export interface ProgressSummary {
   currentLearningProgress: number;
   recentAttempts: MissionAttemptRecord[];
   repeatedMistakes: LearnerMistakeRecord[];
+  conceptStats: ConceptSkillStat[];
+  mistakePatterns: MistakePatternSummary[];
+  recommendations: LearningRecommendation[];
+  recentLearningProgress: RecentLearningProgress[];
   empty: boolean;
 }
 
@@ -185,6 +240,7 @@ export type MentorMistakeCategory =
   | "INCORRECT_LOGIC"
   | "SYNTAX_OR_RUNTIME"
   | "OUTPUT_FORMAT_MISMATCH"
+  | "EMPTY_INPUT_UNHANDLED"
   | "UNKNOWN_ERROR"
   | "GENERAL_GUIDANCE";
 

@@ -18,6 +18,16 @@ export function classifyMistake(userCode, executionResult) {
     : [];
   const publicFailure = failedTests.find((test) => String(test.id).startsWith("public-"));
 
+  // A failed public case whose expected value is empty is useful evidence that
+  // the learner has not handled the mission's empty-input contract yet.
+  const emptyExpected = new Set(["\"\"", "[]", "null"]);
+  const emptyInputFailure = failedTests.find((test) =>
+    String(test.id).startsWith("public-")
+      && typeof test.expectedOutput === "string"
+      && emptyExpected.has(test.expectedOutput.trim()),
+  );
+  if (emptyInputFailure) return "EMPTY_INPUT_UNHANDLED";
+
   if (publicFailure?.expectedOutput && publicFailure?.actualOutput) {
     try {
       const expected = JSON.parse(publicFailure.expectedOutput);
@@ -74,6 +84,13 @@ export function generateProgressiveHints(category, executionResult) {
         level1: "Trace the first and last values processed by your loop.",
         level2: "Check whether the endpoint is inclusive or exclusive and how Python's range boundaries work.",
         level3: "Adjust the loop boundary so every required item is visited exactly once."
+      };
+    case "EMPTY_INPUT_UNHANDLED":
+      return {
+        explanation: "A public edge case with empty input did not match the mission contract.",
+        level1: "Trace what your function should return when the input has no values or characters.",
+        level2: "Choose the empty result before the main loop or comparison, then make sure the normal path still works.",
+        level3: "Add an explicit empty-input case and verify that its return type matches the mission contract exactly."
       };
     case "INCORRECT_LOGIC":
       return {
